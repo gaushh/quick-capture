@@ -1063,6 +1063,13 @@
     margin-bottom: 0;
   }
 
+  .qc-feed-past-tracked {
+    min-height: 0;
+    font-size: 14px;
+    line-height: 1.2;
+    color: var(--qc-text-primary);
+  }
+
   .qc-ai-del {
     color: var(--qc-ai-del-color);
     text-decoration: line-through;

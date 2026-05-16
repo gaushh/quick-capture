@@ -64,6 +64,30 @@ function trackedNoteAcceptedPlain(root: HTMLElement): string {
   return `${clone.textContent ?? ``}`.replace(/\u00a0/g, ` `).trim()
 }
 
+function trackedNoteHtmlAcceptedPlain(html: string): string {
+  const root = document.createElement(`div`)
+
+  root.innerHTML = html
+  return trackedNoteAcceptedPlain(root)
+}
+
+type PastCleanupDraft = {
+  rowId: string
+  html: string
+  session: number
+}
+
+function buildTrackedSuggestionHtml(
+  originalText: string,
+  replacements: Array<{ old: string; new: string }>,
+  cleanedText: string,
+) {
+  const htmlApplied = applySuggestReplacements(originalText, replacements)
+  if (htmlApplied !== null && htmlApplied.includes(`qc-ai-del`)) return htmlApplied
+
+  return applyWholeTextSuggestion(originalText, cleanedText)
+}
+
 /** Resolve click on `.qc-ai-add`: keep wording as plain text, drop paired `.qc-ai-del` to its left (whitespace only between). */
 function acceptTrackedAdditionAtPointer(root: HTMLElement, target: EventTarget | null) {
   if (!(target instanceof Node) || !root.contains(target)) return false
@@ -191,15 +215,22 @@ function FeedClampText({
  */
 function PastEntryText({
   row,
+  cleanupHtml,
+  cleanupSession,
+  onCleanupHtmlChange,
   onSave,
 }: {
   row: { id: string; text: string; silent: boolean }
+  cleanupHtml?: string
+  cleanupSession?: number
+  onCleanupHtmlChange?: (html: string) => void
   onSave: (newText: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [clampable, setClampable] = useState(false)
   const measureRef = useRef<HTMLParagraphElement>(null)
   const editRef = useRef<HTMLDivElement>(null)
+  const cleanupRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const el = measureRef.current
@@ -221,9 +252,42 @@ function PastEntryText({
     window.getSelection()?.addRange(range)
   }, [expanded])
 
+  useLayoutEffect(() => {
+    const el = cleanupRef.current
+    if (!el || cleanupHtml === undefined) return
+    if (el.innerHTML !== cleanupHtml) el.innerHTML = cleanupHtml
+  }, [cleanupHtml, cleanupSession])
+
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
     const newText = e.currentTarget.innerText
     if (newText.trim() !== row.text.trim()) onSave(newText)
+  }
+
+  if (cleanupHtml !== undefined) {
+    return (
+      <div className="qc-feed-truncate-slot">
+        <div
+          ref={cleanupRef}
+          role="textbox"
+          aria-multiline={true}
+          aria-label="Cleaned note suggestions"
+          contentEditable={true}
+          suppressContentEditableWarning={true}
+          spellCheck={true}
+          className="qc-tracked-note-root qc-feed-past-tracked"
+          onPointerDownCapture={e => {
+            const edited = acceptTrackedAdditionAtPointer(e.currentTarget, e.target)
+            if (edited) {
+              e.preventDefault()
+              onCleanupHtmlChange?.(e.currentTarget.innerHTML)
+            }
+          }}
+          onInput={e => {
+            onCleanupHtmlChange?.(e.currentTarget.innerHTML)
+          }}
+        />
+      </div>
+    )
   }
 
   return (
@@ -400,6 +464,7 @@ export function QuickCapture() {
   const [notePresentationMode, setNotePresentationMode] = useState<'plain' | 'tracked'>(`plain`)
   const [trackedNoteSession, setTrackedNoteSession] = useState(0)
   const [trackedOriginalTranscript, setTrackedOriginalTranscript] = useState<string | null>(null)
+  const [pastCleanupDraft, setPastCleanupDraft] = useState<PastCleanupDraft | null>(null)
   const [copyOk, setCopyOk] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
   const [noteCapturedAt, setNoteCapturedAt] = useState<number | null>(null)
@@ -626,6 +691,7 @@ export function QuickCapture() {
     setFeedStampNowMs(nowMs())
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
+    setPastCleanupDraft(null)
     setOutputMode(`note`)
     setChecklistItems([])
     setChecklistBusy(false)
@@ -649,6 +715,7 @@ export function QuickCapture() {
     setFeedStampNowMs(nowMs())
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
+    setPastCleanupDraft(null)
     setOutputMode(`note`)
     setChecklistItems([])
     setChecklistBusy(false)
@@ -666,6 +733,7 @@ export function QuickCapture() {
     setIsProcessingWhisper(false)
     setFinalText(priorText)
     setTrackedOriginalTranscript(null)
+    setPastCleanupDraft(null)
     setPhase(`output`)
   }
 
@@ -687,6 +755,7 @@ export function QuickCapture() {
     }
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
+    setPastCleanupDraft(null)
     // Only reset output mode when starting fresh — preserve checklist state for continuations
     if (opts?.continueFromNote === undefined) {
       setOutputMode('note')
@@ -881,6 +950,7 @@ export function QuickCapture() {
     setFeedStampNowMs(captured.at)
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
+    setPastCleanupDraft(null)
     setIsProcessingWhisper(false)
     setPhase(`output`)
 
@@ -921,6 +991,7 @@ export function QuickCapture() {
     setFinalText('')
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
+    setPastCleanupDraft(null)
     resetLatestCopyState()
     setNoteCapturedAt(null)
     noteContinueBaseRef.current = null
@@ -984,10 +1055,7 @@ export function QuickCapture() {
         return
       }
 
-      const htmlApplied = applySuggestReplacements(trimmedPlain, reps)
-      const fallbackHtml = applyWholeTextSuggestion(trimmedPlain, cleanedText)
-      const trackedHtml =
-        htmlApplied !== null && htmlApplied.includes(`qc-ai-del`) ? htmlApplied : fallbackHtml
+      const trackedHtml = buildTrackedSuggestionHtml(trimmedPlain, reps, cleanedText)
 
       if (trackedHtml === null) {
         revealAiBanner(
@@ -1001,6 +1069,7 @@ export function QuickCapture() {
       trackedNoteBackupHtmlRef.current = trackedHtml
       setFinalText(trimmedPlain)
       setTrackedOriginalTranscript(trimmedPlain)
+      setPastCleanupDraft(null)
       resetLatestCopyState()
       // Checklist branch renders before tracked — leave tasks view so the diff UI can show.
       setOutputMode(`note`)
@@ -1062,7 +1131,11 @@ export function QuickCapture() {
   async function copyHistoryRow(row: CaptureHistoryRow, evt: MouseEvent) {
     evt.stopPropagation()
 
-    const text = row.silent ? SILENT_HISTORY_PREVIEW : row.text
+    const cleanupText =
+      pastCleanupDraft?.rowId === row.id ?
+        trackedNoteHtmlAcceptedPlain(pastCleanupDraft.html)
+      : ``
+    const text = row.silent ? SILENT_HISTORY_PREVIEW : cleanupText || row.text
 
     try {
       await writeClipboardText(text)
@@ -1103,12 +1176,19 @@ export function QuickCapture() {
         revealAiBanner(outcome.summary ?? `Looks good — no edits suggested.`)
         return
       }
-      await writeClipboardText(polished)
-      revealAiBanner(
-        outcome.summary?.trim() ?
-          `${outcome.summary.trim()} — Copied cleaned text.`
-        : `Cleaned text copied to clipboard.`,
-      )
+
+      const trackedHtml = buildTrackedSuggestionHtml(trimmed, outcome.replacements ?? [], polished)
+      if (trackedHtml === null) {
+        revealAiBanner(`Could not safely show edits for this note.`)
+        return
+      }
+
+      setPastCleanupDraft(prev => ({
+        rowId: row.id,
+        html: trackedHtml,
+        session: (prev?.session ?? 0) + 1,
+      }))
+      revealAiBanner(outcome.summary?.trim() || `Cleanup suggestions ready.`)
     } catch {
       revealAiBanner(`Clean up failed — check connectivity and quotas.`)
     } finally {
@@ -1148,6 +1228,11 @@ export function QuickCapture() {
     resetLatestCopyState()
   }
 
+  function restorePastTranscript(rowId: string) {
+    if (pastCleanupDraft?.rowId !== rowId) return
+    setPastCleanupDraft(null)
+  }
+
   // ── Selection mode ────────────────────────────────────────────────
   function enterSelectionMode() {
     setIsSelectionMode(true)
@@ -1180,6 +1265,7 @@ export function QuickCapture() {
     const remaining = historyRows.filter(r => !selectedIds.has(r.id))
     saveCaptureHistory(remaining)
     setHistoryRows(remaining)
+    if (pastCleanupDraft && selectedIds.has(pastCleanupDraft.rowId)) setPastCleanupDraft(null)
     // If the currently-displayed latest note was deleted, clear it
     if (historyRows[0] && selectedIds.has(historyRows[0].id)) {
       setFinalText(``)
@@ -1433,6 +1519,8 @@ export function QuickCapture() {
                       : formatFeedEntryStamp(row.at)
 
                     const rowSideBusy = !isLatest && feedRowActionBusy === row.id
+                    const isPastCleanupActive = !isLatest && pastCleanupDraft?.rowId === row.id
+                    const activePastCleanupDraft = isPastCleanupActive ? pastCleanupDraft : null
                     const cleanDisabledLatest =
                       aiSuggestBusy ||
                       isEmbeddedRecording ||
@@ -1540,11 +1628,11 @@ export function QuickCapture() {
                                 type="button"
                                 className="qc-feed-action"
                                 aria-label="Clean up"
-                                title="Copy cleaned text from this note"
-                                  disabled={cleanDisabledPast}
-                                  onClick={(e) => void handleFeedRowCleanUp(row, false, e)}
-                                >
-                                  <ImproveIconOutline size={15} />
+                                title="Show cleanup suggestions"
+                                disabled={cleanDisabledPast}
+                                onClick={(e) => void handleFeedRowCleanUp(row, false, e)}
+                              >
+                                <ImproveIconOutline size={15} />
                                 <span className="qc-feed-action-label-clip" aria-hidden={true}>
                                   <span className="qc-feed-action-label-text">Clean up</span>
                                 </span>
@@ -1561,6 +1649,23 @@ export function QuickCapture() {
                                   <span className="qc-feed-action-label-text">Copy</span>
                                 </span>
                               </button>
+                              {isPastCleanupActive && (
+                                <button
+                                  type="button"
+                                  className="qc-feed-action qc-feed-action--revert"
+                                  aria-label="Restore Transcript"
+                                  title="Restore Transcript"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    restorePastTranscript(row.id)
+                                  }}
+                                >
+                                  <UndoIcon size={15} />
+                                  <span className="qc-feed-action-label-clip" aria-hidden={true}>
+                                    <span className="qc-feed-action-label-text">Restore Transcript</span>
+                                  </span>
+                                </button>
+                              )}
                             </div>
                           }
                         </div>
@@ -1709,6 +1814,13 @@ export function QuickCapture() {
                             <PastEntryText
                               key={row.id}
                               row={row}
+                              cleanupHtml={activePastCleanupDraft?.html}
+                              cleanupSession={activePastCleanupDraft?.session}
+                              onCleanupHtmlChange={(html) => {
+                                setPastCleanupDraft(prev =>
+                                  prev?.rowId === row.id ? { ...prev, html } : prev,
+                                )
+                              }}
                               onSave={(newText) => {
                                 updateCaptureHistoryById(row.id, newText)
                                 setHistoryRows(loadCaptureHistory())
