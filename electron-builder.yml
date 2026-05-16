@@ -1,0 +1,30 @@
+# Packaged Electron app output (requires `npm run build` before `electron:dist`).
+# See /.env.example for OPENAI_* variables at runtime.
+
+appId: com.quickcapture.app
+productName: Quick Capture
+
+directories:
+  output: release
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+
+mac:
+  target:
+    - dmg
+  category: public.app-category.productivity
+
+win:
+  target:
+    - nsis
+
+linux:
+  target:
+    - AppImage
+
+nsis:
+  oneClick: true
+  perMachine: false
