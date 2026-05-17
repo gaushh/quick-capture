@@ -1381,6 +1381,11 @@
     animation: qc-entry-settle 2.4s var(--qc-ease) forwards;
   }
 
+  .qc-feed-entry--recording-draft {
+    padding-bottom: 4px;
+    animation: qc-live-fadein 160ms ease;
+  }
+
   @keyframes qc-entry-settle {
     0%   { background: var(--qc-bg-hover); border-radius: 8px; }
     55%  { background: var(--qc-bg-hover); border-radius: 8px; }

@@ -1122,6 +1122,7 @@ export function QuickCapture() {
   const transcriptPlainMain =
     isEmbeddedRecording ? mergeNoteContinue(finalText, liveText) : phase === `output` ? finalText : liveText
   const displayText = transcriptPlainMain
+  const recordingDraftText = isEmbeddedRecording ? liveText.trim() : ``
 
   const chronoRows = useMemo(() => [...historyRows].reverse(), [historyRows])
 
@@ -1531,14 +1532,15 @@ export function QuickCapture() {
                   )}
 
                   {chronoRows.map((row, idx) => {
-                    const isLatest = idx === chronoRows.length - 1
+                    const isNewestHistoryRow = idx === chronoRows.length - 1
+                    const isCurrentEntry = isNewestHistoryRow && !isEmbeddedRecording
                     const stamp =
-                      isLatest && noteCapturedAt !== null ?
+                      isCurrentEntry && noteCapturedAt !== null ?
                         liveFeedStamp || formatFeedEntryStamp(row.at)
                       : formatFeedEntryStamp(row.at)
 
-                    const rowSideBusy = !isLatest && feedRowActionBusy === row.id
-                    const isPastCleanupActive = !isLatest && pastCleanupDraft?.rowId === row.id
+                    const rowSideBusy = !isCurrentEntry && feedRowActionBusy === row.id
+                    const isPastCleanupActive = !isCurrentEntry && pastCleanupDraft?.rowId === row.id
                     const activePastCleanupDraft = isPastCleanupActive ? pastCleanupDraft : null
                     const cleanDisabledLatest =
                       aiSuggestBusy ||
@@ -1556,7 +1558,7 @@ export function QuickCapture() {
                       <div
                         key={row.id}
                         className={[
-                          isLatest ? `qc-feed-entry qc-feed-entry--current` : `qc-feed-entry`,
+                          isCurrentEntry ? `qc-feed-entry qc-feed-entry--current` : `qc-feed-entry`,
                           isSelectionMode ? `qc-feed-entry--selectable` : ``,
                           isSelectionMode && selectedIds.has(row.id) ? `qc-feed-entry--selected` : ``,
                         ].join(` `).trim()}
@@ -1573,7 +1575,7 @@ export function QuickCapture() {
 
                         <div className="qc-feed-meta">
                           <span className="qc-feed-meta-time">{stamp}</span>
-                          {isLatest ?
+                          {isCurrentEntry ?
                             !isProcessingWhisper ?
                               <div className="qc-feed-actions">
                                 <button
@@ -1689,7 +1691,7 @@ export function QuickCapture() {
                           }
                         </div>
 
-                        {isLatest ?
+                        {isCurrentEntry ?
                           <>
                             {outputMode === `checklist` ?
                               isEmbeddedRecording && checklistItems.length ?
@@ -1850,6 +1852,26 @@ export function QuickCapture() {
                       </div>
                     )
                   })}
+
+                  {isEmbeddedRecording && !isSelectionMode && (
+                    <div className="qc-feed-entry qc-feed-entry--recording-draft" aria-live="polite">
+                      <div className="qc-feed-meta">
+                        <span className="qc-feed-meta-time">now · Today</span>
+                      </div>
+                      {recordingDraftText ?
+                        <FeedClampText
+                          text={recordingDraftText}
+                          className="qc-feed-current-text select-text whitespace-pre-wrap"
+                        />
+                      :
+                        <div className="qc-feed-live-placeholder" aria-label="Listening">
+                          <div className="qc-dictation-typing" aria-hidden={true}>
+                            <span /><span /><span />
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  )}
 
                   {historyRows.length === 0 && !isProcessingWhisper && !isEmbeddedRecording && (
                     <p className="px-3 py-6 text-sm italic" style={{ color: `var(--qc-text-muted)` }}>
