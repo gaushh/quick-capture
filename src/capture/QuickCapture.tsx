@@ -1,4 +1,5 @@
 import {
+  cloneElement,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -6,7 +7,23 @@ import {
   useState,
   type CSSProperties,
   type MouseEvent,
+  type ReactElement,
 } from 'react'
+import { createPortal } from 'react-dom'
+
+import {
+  Check,
+  Copy,
+  FileText,
+  Mic,
+  Minus,
+  Moon,
+  Sparkles,
+  Sun,
+  Trash2,
+  Undo2,
+  X,
+} from 'lucide-react'
 
 import { browserDemoUiMockActive } from './browserDemo.ts'
 import {
@@ -209,6 +226,64 @@ function FeedClampText({
   )
 }
 
+/** Inner tooltip div — measures itself after mount and clamps horizontally within the viewport. */
+function TooltipEl({ content, anchorRect }: { content: string; anchorRect: DOMRect }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [left, setLeft] = useState<number>(() => Math.round(anchorRect.left + anchorRect.width / 2))
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const { width } = el.getBoundingClientRect()
+    const center = anchorRect.left + anchorRect.width / 2
+    const margin = 8
+    setLeft(Math.round(Math.min(Math.max(center - width / 2, margin), window.innerWidth - width - margin)))
+  }, [anchorRect])
+
+  return (
+    <div
+      ref={ref}
+      className="qc-tooltip"
+      style={{
+        position: `fixed`,
+        left,
+        top: Math.round(anchorRect.top - 7),
+        transform: `translateY(-100%)`,
+        pointerEvents: `none`,
+        zIndex: 9999,
+      }}
+    >
+      {content}
+    </div>
+  )
+}
+
+/** Lightweight styled tooltip — wraps a single child element, renders via portal so overflow:hidden never clips it. */
+function Tip({ content, children }: { content: string; children: ReactElement }) {
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const child = cloneElement(children, {
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+      const captured = e.currentTarget.getBoundingClientRect()
+      timerRef.current = setTimeout(() => setRect(captured), 1000)
+      ;(children.props as { onMouseEnter?: (e: React.MouseEvent) => void }).onMouseEnter?.(e)
+    },
+    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+      if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null }
+      setRect(null)
+      ;(children.props as { onMouseLeave?: (e: React.MouseEvent) => void }).onMouseLeave?.(e)
+    },
+  })
+
+  return (
+    <>
+      {child}
+      {rect && createPortal(<TooltipEl content={content} anchorRect={rect} />, document.body)}
+    </>
+  )
+}
+
 /**
  * Past-entry text: collapsed = 3-line clamp with `…` (click to expand accordion-style),
  * expanded = full text as contentEditable. Saves on blur.
@@ -294,14 +369,16 @@ function PastEntryText({
     <div className="qc-feed-truncate-slot">
       {/* Collapsed: always apply clamp — scrollHeight vs clientHeight detects actual overflow */}
       {!expanded && (
-        <p
-          ref={measureRef}
-          className="qc-feed-past-text qc-feed-body-text whitespace-pre-wrap qc-feed-line-clamp-3"
-          style={{ cursor: `pointer` }}
-          onClick={(e) => { e.stopPropagation(); setExpanded(true) }}
-        >
-          {row.text}
-        </p>
+        <Tip content="Click to edit">
+          <p
+            ref={measureRef}
+            className="qc-feed-past-text qc-feed-body-text whitespace-pre-wrap qc-feed-line-clamp-3"
+            style={{ cursor: `pointer` }}
+            onClick={(e) => { e.stopPropagation(); setExpanded(true) }}
+          >
+            {row.text}
+          </p>
+        </Tip>
       )}
 
       {/* Expanded: full contentEditable + optional "Show less" */}
@@ -338,106 +415,58 @@ function PastEntryText({
 }
 
 
+const SW = 1.65 // shared Lucide stroke weight
+
 /** "Improve note" sparkle */
 function ImproveIconOutline({ size = 17 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.55} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3l1.76 7.76L21 13l-7.24 2.24L12 23l-1.76-7.76L3 13l7.24-2.24L12 3z" />
-    </svg>
-  )
+  return <Sparkles size={size} strokeWidth={SW} />
 }
 
 /** Sheet / notes — idle pill primary control */
 function NotesIcon({ size = 17 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.55} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
-      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
-    </svg>
-  )
+  return <FileText size={size} strokeWidth={SW} />
 }
 
 function CopyIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <rect x="9" y="9" width="13" height="13" rx="2" />
-      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-    </svg>
-  )
+  return <Copy size={size} strokeWidth={SW} />
 }
 
 function TrashIcon({ size = 15 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
-  )
+  return <Trash2 size={size} strokeWidth={SW} aria-hidden />
 }
 
 function CheckIcon({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 6L9 17l-5-5" />
-    </svg>
-  )
+  return <Check size={size} strokeWidth={SW} />
 }
 
 /** Title-bar style minimize (floating window chrome). */
 function WindowMinimizeIcon() {
-  return (
-    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden>
-      <path d="M6 14h12" />
-    </svg>
-  )
+  return <Minus size={14} strokeWidth={SW} aria-hidden />
 }
 
 /** Dismiss overlay (hides pill; same behaviour as ESC). */
 function WindowCloseIcon() {
-  return (
-    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden>
-      <path d="M8 8l8 8M16 8l-8 8" />
-    </svg>
-  )
+  return <X size={14} strokeWidth={SW} aria-hidden />
 }
 
 function XIcon({ size = 13 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden>
-      <path d="M18 6L6 18M6 6l12 12" />
-    </svg>
-  )
+  return <X size={size} strokeWidth={SW} aria-hidden />
 }
 
 function UndoIcon({ size = 15 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 10h11a5 5 0 010 10H9" />
-      <path d="M3 10l4-4M3 10l4 4" />
-    </svg>
-  )
+  return <Undo2 size={size} strokeWidth={SW} aria-hidden />
 }
 
 function MoonIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.65}
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  )
+  return <Moon size={size} strokeWidth={SW} aria-hidden />
 }
 
 function SunIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.65}
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-    </svg>
-  )
+  return <Sun size={size} strokeWidth={SW} aria-hidden />
+}
+
+function MicIcon({ size = 14 }: { size?: number }) {
+  return <Mic size={size} strokeWidth={SW} aria-hidden />
 }
 
 export function QuickCapture() {
@@ -466,6 +495,8 @@ export function QuickCapture() {
   const [trackedOriginalTranscript, setTrackedOriginalTranscript] = useState<string | null>(null)
   const [pastCleanupDraft, setPastCleanupDraft] = useState<PastCleanupDraft | null>(null)
   const [copyOk, setCopyOk] = useState(false)
+  const [copiedRowId, setCopiedRowId] = useState<string | null>(null)
+  const [newlyAddedRowId, setNewlyAddedRowId] = useState<string | null>(null)
   const [micError, setMicError] = useState<string | null>(null)
   const [noteCapturedAt, setNoteCapturedAt] = useState<number | null>(null)
   /** Drives `now · …` → clock time in the feed without calling `Date.now()` during render. */
@@ -944,6 +975,8 @@ export function QuickCapture() {
 
     const captured = addCaptureHistoryEntry(merged)
     setHistoryRows(loadCaptureHistory())
+    setNewlyAddedRowId(captured.id)
+    setTimeout(() => setNewlyAddedRowId(null), 5000)
 
     setFinalText(merged)
     setNoteCapturedAt(captured.at)
@@ -1028,11 +1061,11 @@ export function QuickCapture() {
 
     const trimmedPlain = getNotePlainSnapshot()
     if (!trimmedPlain.length) {
-      revealAiBanner(`Nothing to clean up in this note.`)
+      revealAiBanner(`Nothing to refine in this note.`)
       return
     }
     if (classifySilentTranscript(trimmedPlain)) {
-      revealAiBanner(`Nothing to clean up in this note.`)
+      revealAiBanner(`Nothing to refine in this note.`)
       return
     }
 
@@ -1130,6 +1163,7 @@ export function QuickCapture() {
 
   async function copyHistoryRow(row: CaptureHistoryRow, evt: MouseEvent) {
     evt.stopPropagation()
+    if (copiedRowId === row.id) return
 
     const cleanupText =
       pastCleanupDraft?.rowId === row.id ?
@@ -1138,7 +1172,11 @@ export function QuickCapture() {
     const text = row.silent ? SILENT_HISTORY_PREVIEW : cleanupText || row.text
 
     try {
-      await writeClipboardText(text)
+      const copied = await writeClipboardText(text)
+      if (copied) {
+        setCopiedRowId(row.id)
+        setTimeout(() => setCopiedRowId(null), 900)
+      }
     } catch {
       //
     }
@@ -1188,9 +1226,8 @@ export function QuickCapture() {
         html: trackedHtml,
         session: (prev?.session ?? 0) + 1,
       }))
-      revealAiBanner(outcome.summary?.trim() || `Cleanup suggestions ready.`)
     } catch {
-      revealAiBanner(`Clean up failed — check connectivity and quotas.`)
+      revealAiBanner(`Refine failed — check connectivity and quotas.`)
     } finally {
       setFeedRowActionBusy(null)
     }
@@ -1354,30 +1391,27 @@ export function QuickCapture() {
         {/* IDLE: notes | mic */}
         {phase === 'idle' && (
           <div className="qc-idle-split">
-            <button
-              type="button"
-              onClick={() => openNotesOnly()}
-              className="qc-idle-split-btn"
-              aria-label="Open your notes"
-              title="Your notes"
-            >
-              <NotesIcon size={15} />
-            </button>
+            <Tip content="Your notes">
+              <button
+                type="button"
+                onClick={() => openNotesOnly()}
+                className="qc-idle-split-btn"
+                aria-label="Open your notes"
+              >
+                <NotesIcon size={15} />
+              </button>
+            </Tip>
             <div className="qc-idle-split-divider" aria-hidden />
-            <button
-              type="button"
-              onClick={() => void startRecordingFromNotes()}
-              className="qc-idle-split-btn"
-              aria-label="Start dictation"
-              title="Start dictation  ⌃Space"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 15a4 4 0 004-4V7a4 4 0 10-8 0v4a4 4 0 004 4z" />
-                <path d="M19 11a7 7 0 01-14 0" />
-                <path d="M12 19v2" /><path d="M10 21h4" />
-              </svg>
-            </button>
+            <Tip content="Hit ⌃Space">
+              <button
+                type="button"
+                onClick={() => void startRecordingFromNotes()}
+                className="qc-idle-split-btn"
+                aria-label="Start dictation"
+              >
+                <MicIcon size={14} />
+              </button>
+            </Tip>
           </div>
         )}
 
@@ -1396,19 +1430,35 @@ export function QuickCapture() {
               <div className="flex shrink-0 items-center justify-between gap-2 px-5 pb-3 pt-4">
                 <div className="flex min-w-0 flex-1 flex-col gap-[3px] pr-1">
                   <span
-                    className="qc-scratchpad-header-title truncate text-[15px] font-bold tracking-tight"
+                    className="qc-scratchpad-header-title truncate text-[17px] font-semibold tracking-tight"
                     style={{ color: `var(--qc-text-primary)` }}
                   >
                     Voice notes
                   </span>
-                  <p className={`qc-sheet-shortcut-hint${isEmbeddedRecording ? `` : ``}`}>
-                    {isEmbeddedRecording ? `listening…` : `Hit ⌃Space to speak`}
+                  <p className="qc-sheet-shortcut-hint">
+                    {`Hit ⌃Space to speak`}
                   </p>
                 </div>
                 <div
                   className="flex shrink-0 items-center gap-1 [-webkit-app-region:no-drag]"
                   role="presentation"
                 >
+                  {/* Mic CTA — always visible in header, active state when recording */}
+                  {!isSelectionMode && (
+                    <Tip content="Hit ⌃Space">
+                      <button
+                        type="button"
+                        className={`qc-chrome-icon-btn${isEmbeddedRecording ? ` qc-chrome-icon-btn--active` : ``}`}
+                        style={{ color: `var(--qc-accent)` }}
+                        aria-label="Start dictation"
+                        disabled={isEmbeddedRecording || isProcessingWhisper}
+                        onClick={() => void startRecordingFromNotes()}
+                      >
+                        <MicIcon size={13} />
+                      </button>
+                    </Tip>
+                  )}
+
                   {/* Delete / selection mode toggle */}
                   {!isEmbeddedRecording && (
                     isSelectionMode ? (
@@ -1417,58 +1467,61 @@ export function QuickCapture() {
                         className="qc-chrome-icon-btn"
                         style={{ fontSize: `11px`, fontWeight: 500, color: `var(--qc-text-secondary)`, width: `auto`, padding: `0 6px` }}
                         onClick={exitSelectionMode}
-                        title="Cancel selection"
                       >
                         Cancel
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        className="qc-chrome-icon-btn"
-                        aria-label="Select notes to delete"
-                        title="Delete notes"
-                        disabled={historyRows.length === 0}
-                        onClick={enterSelectionMode}
-                      >
-                        <TrashIcon size={13} />
-                      </button>
+                      <Tip content="Delete notes">
+                        <button
+                          type="button"
+                          className="qc-chrome-icon-btn"
+                          aria-label="Select notes to delete"
+                          disabled={historyRows.length === 0}
+                          onClick={enterSelectionMode}
+                        >
+                          <TrashIcon size={13} />
+                        </button>
+                      </Tip>
                     )
                   )}
 
-                  <button
-                    type="button"
-                    className="qc-chrome-icon-btn"
-                    aria-label={appearance === `light` ? `Switch to dark mode` : `Switch to light mode`}
-                    title={appearance === `light` ? `Dark mode` : `Light mode`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                      toggleAppearance()
-                    }}
-                  >
-                    {appearance === `light` ? <MoonIcon size={13} /> : <SunIcon size={13} />}
-                  </button>
+                  <Tip content={appearance === `light` ? `Dark mode` : `Light mode`}>
+                    <button
+                      type="button"
+                      className="qc-chrome-icon-btn"
+                      aria-label={appearance === `light` ? `Switch to dark mode` : `Switch to light mode`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        toggleAppearance()
+                      }}
+                    >
+                      {appearance === `light` ? <MoonIcon size={13} /> : <SunIcon size={13} />}
+                    </button>
+                  </Tip>
 
                   {typeof window !== `undefined` && window.pill ?
                     <>
-                      <button
-                        type="button"
-                        className="qc-chrome-square-btn"
-                        aria-label="Minimize to pill"
-                        title="Minimize to pill"
-                        onClick={() => collapseToIdlePill()}
-                      >
-                        <WindowMinimizeIcon />
-                      </button>
-                      <button
-                        type="button"
-                        className="qc-chrome-square-btn"
-                        aria-label="Close"
-                        title="Close"
-                        onClick={() => dismiss()}
-                      >
-                        <WindowCloseIcon />
-                      </button>
+                      <Tip content="Minimize">
+                        <button
+                          type="button"
+                          className="qc-chrome-square-btn"
+                          aria-label="Minimize to pill"
+                          onClick={() => collapseToIdlePill()}
+                        >
+                          <WindowMinimizeIcon />
+                        </button>
+                      </Tip>
+                      <Tip content="Close">
+                        <button
+                          type="button"
+                          className="qc-chrome-square-btn"
+                          aria-label="Close"
+                          onClick={() => dismiss()}
+                        >
+                          <WindowCloseIcon />
+                        </button>
+                      </Tip>
                     </>
                   : null}
                 </div>
@@ -1540,6 +1593,7 @@ export function QuickCapture() {
                           isLatest ? `qc-feed-entry qc-feed-entry--current` : `qc-feed-entry`,
                           isSelectionMode ? `qc-feed-entry--selectable` : ``,
                           isSelectionMode && selectedIds.has(row.id) ? `qc-feed-entry--selected` : ``,
+                          newlyAddedRowId === row.id ? `qc-feed-entry--new` : ``,
                         ].join(` `).trim()}
                         onClick={isSelectionMode ? () => toggleSelectId(row.id) : undefined}
                       >
@@ -1557,58 +1611,48 @@ export function QuickCapture() {
                           {isLatest ?
                             !isProcessingWhisper ?
                               <div className="qc-feed-actions">
-                                <button
-                                  type="button"
-                                  className="qc-feed-action"
-                                  aria-label="Clean up"
-                                  title="Clean up grammar & phrasing"
-                                  disabled={cleanDisabledLatest}
-                                  onClick={(e) => void handleFeedRowCleanUp(row, true, e)}
-                                >
-                                  {aiSuggestBusy ?
-                                    <span
-                                      aria-hidden={true}
-                                      className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid"
-                                      style={{
-                                        borderColor: `var(--qc-border-strong)`,
-                                        borderTopColor: `var(--qc-accent)`,
-                                      }}
-                                    />
-                                  : <ImproveIconOutline size={15} />}
-                                  <span className="qc-feed-action-label-clip" aria-hidden={true}>
-                                    <span className="qc-feed-action-label-text">Clean up</span>
-                                  </span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="qc-feed-action"
-                                  aria-label={copyOk ? `Copied` : `Copy`}
-                                  title={copyOk ? `Copied` : `Copy`}
-                                  disabled={copyOk || isEmbeddedRecording}
-                                  onClick={(e) => handleFeedRowCopy(row, true, e)}
-                                >
-                                  {copyOk ?
-                                    <CheckIcon size={15} />
-                                  : <CopyIcon size={15} />}
-                                  <span className="qc-feed-action-label-clip" aria-hidden={true}>
-                                    <span className="qc-feed-action-label-text">
-                                      {copyOk ? `Copied` : `Copy`}
-                                    </span>
-                                  </span>
-                                </button>
-                                {notePresentationMode === `tracked` && trackedOriginalTranscript !== null && (
+                                <Tip content="Refine">
                                   <button
                                     type="button"
-                                    className="qc-feed-action qc-feed-action--revert"
-                                    aria-label="Restore Transcript"
-                                    title="Restore Transcript"
-                                    onClick={restoreTranscript}
+                                    className="qc-feed-action"
+                                    aria-label="Refine"
+                                    disabled={cleanDisabledLatest}
+                                    onClick={(e) => void handleFeedRowCleanUp(row, true, e)}
                                   >
-                                    <UndoIcon size={15} />
-                                    <span className="qc-feed-action-label-clip" aria-hidden={true}>
-                                      <span className="qc-feed-action-label-text">Restore Transcript</span>
-                                    </span>
+                                    {aiSuggestBusy ?
+                                      <span
+                                        aria-hidden={true}
+                                        className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid"
+                                        style={{
+                                          borderColor: `var(--qc-border-strong)`,
+                                          borderTopColor: `var(--qc-accent)`,
+                                        }}
+                                      />
+                                    : <ImproveIconOutline size={15} />}
                                   </button>
+                                </Tip>
+                                <Tip content={copyOk ? `Copied` : `Copy`}>
+                                  <button
+                                    type="button"
+                                    className="qc-feed-action"
+                                    aria-label={copyOk ? `Copied` : `Copy`}
+                                    disabled={copyOk || isEmbeddedRecording}
+                                    onClick={(e) => handleFeedRowCopy(row, true, e)}
+                                  >
+                                    {copyOk ? <CheckIcon size={15} /> : <CopyIcon size={15} />}
+                                  </button>
+                                </Tip>
+                                {notePresentationMode === `tracked` && trackedOriginalTranscript !== null && (
+                                  <Tip content="Restore">
+                                    <button
+                                      type="button"
+                                      className="qc-feed-action qc-feed-action--revert"
+                                      aria-label="Restore"
+                                      onClick={restoreTranscript}
+                                    >
+                                      <UndoIcon size={15} />
+                                    </button>
+                                  </Tip>
                                 )}
                               </div>
                             : null
@@ -1624,47 +1668,42 @@ export function QuickCapture() {
                             </div>
                           :
                             <div className="qc-feed-actions">
-                              <button
-                                type="button"
-                                className="qc-feed-action"
-                                aria-label="Clean up"
-                                title="Show cleanup suggestions"
-                                disabled={cleanDisabledPast}
-                                onClick={(e) => void handleFeedRowCleanUp(row, false, e)}
-                              >
-                                <ImproveIconOutline size={15} />
-                                <span className="qc-feed-action-label-clip" aria-hidden={true}>
-                                  <span className="qc-feed-action-label-text">Clean up</span>
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                className="qc-feed-action"
-                                aria-label="Copy"
-                                title="Copy"
-                                onClick={(e) => handleFeedRowCopy(row, false, e)}
-                              >
-                                <CopyIcon size={15} />
-                                <span className="qc-feed-action-label-clip" aria-hidden={true}>
-                                  <span className="qc-feed-action-label-text">Copy</span>
-                                </span>
-                              </button>
-                              {isPastCleanupActive && (
+                              <Tip content="Refine">
                                 <button
                                   type="button"
-                                  className="qc-feed-action qc-feed-action--revert"
-                                  aria-label="Restore Transcript"
-                                  title="Restore Transcript"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    restorePastTranscript(row.id)
-                                  }}
+                                  className="qc-feed-action"
+                                  aria-label="Refine"
+                                  disabled={cleanDisabledPast}
+                                  onClick={(e) => void handleFeedRowCleanUp(row, false, e)}
                                 >
-                                  <UndoIcon size={15} />
-                                  <span className="qc-feed-action-label-clip" aria-hidden={true}>
-                                    <span className="qc-feed-action-label-text">Restore Transcript</span>
-                                  </span>
+                                  <ImproveIconOutline size={15} />
                                 </button>
+                              </Tip>
+                              <Tip content={copiedRowId === row.id ? `Copied` : `Copy`}>
+                                <button
+                                  type="button"
+                                  className="qc-feed-action"
+                                  aria-label={copiedRowId === row.id ? `Copied` : `Copy`}
+                                  disabled={copiedRowId === row.id}
+                                  onClick={(e) => handleFeedRowCopy(row, false, e)}
+                                >
+                                  {copiedRowId === row.id ? <CheckIcon size={15} /> : <CopyIcon size={15} />}
+                                </button>
+                              </Tip>
+                              {isPastCleanupActive && (
+                                <Tip content="Restore">
+                                  <button
+                                    type="button"
+                                    className="qc-feed-action qc-feed-action--revert"
+                                    aria-label="Restore"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      restorePastTranscript(row.id)
+                                    }}
+                                  >
+                                    <UndoIcon size={15} />
+                                  </button>
+                                </Tip>
                               )}
                             </div>
                           }
@@ -1798,7 +1837,7 @@ export function QuickCapture() {
                             :
                               /* When recording, show prior text stable — live block appears below */
                               <FeedClampText
-                                text={isEmbeddedRecording ? finalText : displayText}
+                                text={isEmbeddedRecording ? (finalText || row.text) : displayText}
                                 className="qc-feed-current-text select-text whitespace-pre-wrap"
                               />
                             }
@@ -1858,32 +1897,13 @@ export function QuickCapture() {
                 </div>
               )}
 
-              {(phase === `output` || isEmbeddedRecording) && !isSelectionMode && (
+              {isEmbeddedRecording && !isSelectionMode && (
                 <div
-                  className={
-                    isEmbeddedRecording ?
-                      `qc-notes-mic-cta qc-notes-mic-cta--expanded`
-                    : `qc-notes-mic-cta`
-                  }
+                  className="qc-notes-mic-cta qc-notes-mic-cta--expanded"
                   role="presentation"
                   style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
                 >
-                  {!isEmbeddedRecording ? (
-                    <button
-                      type="button"
-                      className="qc-notes-mic-cta__fab"
-                      onClick={() => void startRecordingFromNotes()}
-                      aria-label="Start dictation"
-                      title="Start dictation  ⌃Space"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden={true}>
-                        <path d="M12 15a4 4 0 004-4V7a4 4 0 10-8 0v4a4 4 0 004 4z" />
-                        <path d="M19 11a7 7 0 01-14 0" />
-                        <path d="M12 19v2" /><path d="M10 21h4" />
-                      </svg>
-                    </button>
-                  ) : isProcessingWhisper ? (
+                  {isProcessingWhisper ? (
                     <div className="qc-notes-mic-cta__bar qc-notes-mic-cta__bar--processing">
                       <div className="qc-notes-mic-cta__bar-dots" aria-hidden={true}>
                         <div className="qc-dictation-typing">
@@ -1905,33 +1925,31 @@ export function QuickCapture() {
                   ) :
                     (
                       <div className="qc-notes-mic-cta__bar">
-                        <div className="qc-notes-mic-cta__bar-dots" aria-hidden={true}>
-                          <div className="qc-dictation-typing">
-                            <span /><span /><span />
-                          </div>
-                        </div>
+                        <span className="qc-listening-label" aria-live="polite">Listening</span>
                         <div className="qc-notes-mic-cta__bar-actions">
-                          <button
-                            type="button"
-                            className="qc-notes-mic-cta__icon-btn"
-                            onClick={() => cancelRecording()}
-                            aria-label="Cancel recording"
-                            title="Discard"
-                          >
-                            <XIcon size={13} />
-                          </button>
+                          <Tip content="Discard">
+                            <button
+                              type="button"
+                              className="qc-notes-mic-cta__icon-btn"
+                              onClick={() => cancelRecording()}
+                              aria-label="Cancel recording"
+                            >
+                              <XIcon size={13} />
+                            </button>
+                          </Tip>
                           <div className="qc-notes-mic-cta__wave" aria-hidden={true}>
                             <span /><span /><span /><span /><span /><span /><span />
                           </div>
-                          <button
-                            type="button"
-                            className="qc-notes-mic-cta__icon-btn"
-                            onClick={() => void stopRecording()}
-                            aria-label="Accept audio and transcribe"
-                            title="Finish and transcribe"
-                          >
-                            <CheckIcon size={15} />
-                          </button>
+                          <Tip content="Finish and transcribe">
+                            <button
+                              type="button"
+                              className="qc-notes-mic-cta__icon-btn"
+                              onClick={() => void stopRecording()}
+                              aria-label="Accept audio and transcribe"
+                            >
+                              <CheckIcon size={15} />
+                            </button>
+                          </Tip>
                         </div>
                       </div>
                     )}

@@ -5,25 +5,25 @@
  */
 @theme inline {
   --font-ui:
-    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, sans-serif;
+    'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
   --font-sans: var(--font-ui);
   --font-mono:
     ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
 
-  --text-xs--line-height: 1.2;
-  --text-sm--line-height: 1.2;
-  --text-base--line-height: 1.2;
-  --text-lg--line-height: 1.2;
-  --text-xl--line-height: 1.2;
-  --text-2xl--line-height: 1.2;
-  --text-3xl--line-height: 1.2;
-  --text-4xl--line-height: 1.2;
-  --text-5xl--line-height: 1.2;
-  --text-6xl--line-height: 1.2;
-  --text-7xl--line-height: 1.2;
-  --text-8xl--line-height: 1.2;
-  --text-9xl--line-height: 1.2;
+  --text-xs--line-height: 1.5;
+  --text-sm--line-height: 1.5;
+  --text-base--line-height: 1.5;
+  --text-lg--line-height: 1.5;
+  --text-xl--line-height: 1.5;
+  --text-2xl--line-height: 1.5;
+  --text-3xl--line-height: 1.5;
+  --text-4xl--line-height: 1.5;
+  --text-5xl--line-height: 1.5;
+  --text-6xl--line-height: 1.5;
+  --text-7xl--line-height: 1.5;
+  --text-8xl--line-height: 1.5;
+  --text-9xl--line-height: 1.5;
 }
 
 @layer base {
@@ -55,8 +55,8 @@
       0 1px 0 rgba(9, 12, 20, 0.04),
       0 1px 2px rgba(9, 12, 20, 0.05);
     --qc-shadow-md:
-      0 2px 4px rgba(9, 12, 20, 0.04),
-      0 6px 20px rgba(9, 12, 20, 0.06),
+      0 8px 10px -6px rgba(0, 0, 0, 0.08),
+      0 20px 25px -5px rgba(0, 0, 0, 0.08),
       0 0 0 1px var(--qc-border);
 
     --qc-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -85,10 +85,10 @@
    */
   :root.qc-theme-dark {
     color-scheme: dark;
-    --qc-bg-canvas: #090a0e;
-    --qc-bg-surface: #16161a;
+    --qc-bg-canvas: #111111;
+    --qc-bg-surface: #191919;
     --qc-bg-sidebar: rgba(34, 35, 40, 0.96);
-    --qc-bg-content: #16161a;
+    --qc-bg-content: #191919;
     --qc-bg-hover: rgba(255, 255, 255, 0.05);
     --qc-bg-pressed: rgba(255, 255, 255, 0.09);
 
@@ -96,8 +96,8 @@
     --qc-text-secondary: #9ea5b4;
     --qc-text-muted: #636b7a;
 
-    --qc-border: rgba(255, 255, 255, 0.075);
-    --qc-border-strong: rgba(255, 255, 255, 0.12);
+    --qc-border: rgba(255, 255, 255, 0.106);
+    --qc-border-strong: rgba(255, 255, 255, 0.16);
 
     --qc-icon-default: #aeb4c2;
     --qc-icon-active: #f7f8f8;
@@ -106,7 +106,8 @@
       0 1px 0 rgba(0, 0, 0, 0.25),
       0 1px 2px rgba(0, 0, 0, 0.2);
     --qc-shadow-md:
-      0 4px 16px rgba(0, 0, 0, 0.45),
+      0 8px 10px -6px rgba(0, 0, 0, 0.15),
+      0 20px 25px -5px rgba(0, 0, 0, 0.15),
       0 0 0 1px var(--qc-border);
 
     --qc-ai-del-color: #7d8590;
@@ -116,6 +117,8 @@
     --qc-float-elev:
       0 1px 2px rgba(0, 0, 0, 0.38),
       0 8px 24px rgba(0, 0, 0, 0.42);
+
+    --qc-entry-new-bg: rgba(255, 255, 255, 0.05);
   }
 
   *,
@@ -132,7 +135,7 @@
     min-height: 100vh;
     background-color: transparent;
     font-size: 14px;
-    line-height: 1.2;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -153,9 +156,11 @@
     /* background is set via inline style on the shell (grey for card, white for pill) */
   }
 
-  /* Idle / recording chip: hairline ring only; depth reads on hover inside the trigger. */
+  /* Idle pill: subtle elevation + hairline border ring. */
   .icon-btn-shadow {
-    box-shadow: 0 0 0 1px var(--qc-border);
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.06),
+      0 0 0 1px var(--qc-border);
     background: var(--qc-bg-surface);
   }
 
@@ -405,7 +410,7 @@
     font-size: 11.5px;
     font-weight: 500;
     letter-spacing: 0.02em;
-    line-height: 1.2;
+    line-height: 1.5;
     color: var(--qc-text-muted);
     -webkit-user-select: none;
     user-select: none;
@@ -574,6 +579,23 @@
     color: var(--qc-accent);
   }
 
+  /* Primary accent button */
+  .qc-chrome-icon-btn--primary {
+    color: #fff;
+    background: var(--qc-accent);
+    border-radius: 8px;
+  }
+
+  .qc-chrome-icon-btn--primary:hover {
+    background: color-mix(in srgb, var(--qc-accent) 88%, #000);
+    color: #fff;
+  }
+
+  .qc-chrome-icon-btn--primary:disabled {
+    background: color-mix(in srgb, var(--qc-accent) 50%, transparent);
+    color: rgba(255, 255, 255, 0.6);
+  }
+
   /* Inline waveform bars inside the mic button when recording */
   .qc-mic-wave-inline {
     display: flex;
@@ -658,10 +680,10 @@
     margin: 0;
     padding: 0;
     font-family: inherit;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 400;
-    letter-spacing: 0.01em;
-    line-height: 1.2;
+    letter-spacing: 0.005em;
+    line-height: 1.5;
     color: var(--qc-text-muted);
     -webkit-user-select: none;
     user-select: none;
@@ -681,7 +703,7 @@
     font-size: 11.5px;
     font-weight: 500;
     letter-spacing: 0.02em;
-    line-height: 1.2;
+    line-height: 1.5;
     color: var(--qc-text-muted);
     cursor: pointer;
     text-align: left;
@@ -1034,7 +1056,7 @@
     cursor: text;
     color: var(--qc-text-primary);
     font-size: 15px;
-    line-height: 1.2;
+    line-height: 1.5;
     letter-spacing: -0.015em;
     caret-color: var(--qc-ai-add-fg);
     min-height: 8rem;
@@ -1066,7 +1088,7 @@
   .qc-feed-past-tracked {
     min-height: 0;
     font-size: 14px;
-    line-height: 1.2;
+    line-height: 1.5;
     color: var(--qc-text-primary);
   }
 
@@ -1136,7 +1158,7 @@
 
   .qc-checklist-label {
     font-size: 14.5px;
-    line-height: 1.2;
+    line-height: 1.5;
     letter-spacing: -0.012em;
     border-radius: 3px;
     padding: 0 2px;
@@ -1162,22 +1184,23 @@
   }
 
   .qc-feed-entry {
-    padding: 10px 20px 13px;
+    padding: 11px 16px 11px;
     position: relative;
+
   }
 
   .qc-feed-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 3px;
+    margin-bottom: 5px;
   }
 
   .qc-feed-meta-time {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 400;
     color: var(--qc-text-muted);
-    letter-spacing: 0.012em;
+    letter-spacing: 0.008em;
     min-width: 0;
     flex: 1 1 0;
     overflow: hidden;
@@ -1186,8 +1209,8 @@
   }
 
   .qc-feed-past-text {
-    font-size: 13px;
-    line-height: 1.2;
+    font-size: 14px;
+    line-height: 1.5;
     color: var(--qc-text-secondary);
     -webkit-user-select: text;
     user-select: text;
@@ -1197,6 +1220,7 @@
   .qc-feed-body-text {
     font-size: 14px;
     font-weight: 400;
+    line-height: 1.5;
     color: var(--qc-text-primary);
   }
 
@@ -1299,6 +1323,7 @@
    * the label cannot expand the button at rest (Chromium inline-flex min-content quirks).
    */
   .qc-feed-action-label-clip {
+    display: none;
     flex: 0 1 0;
     min-width: 0;
     max-width: 0;
@@ -1336,27 +1361,6 @@
     visibility: hidden;
   }
 
-  /* Revert button — muted until hover, then amber to signal "undo" */
-  .qc-feed-action--revert svg {
-    color: var(--qc-text-muted);
-  }
-
-  .qc-feed-action--revert:hover:not(:disabled) {
-    background: color-mix(in srgb, transparent 85%, #f59e0b 15%);
-  }
-
-  .qc-feed-action--revert:hover:not(:disabled) svg {
-    color: #b45309;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .qc-feed-action--revert:hover:not(:disabled) {
-      background: color-mix(in srgb, transparent 80%, #f59e0b 20%);
-    }
-    .qc-feed-action--revert:hover:not(:disabled) svg {
-      color: #fbbf24;
-    }
-  }
 
   .qc-feed-entry--current .qc-feed-meta-time {
     color: var(--qc-text-secondary);
@@ -1389,7 +1393,7 @@
 
   .qc-feed-live-text {
     font-size: 13px;
-    line-height: 1.2;
+    line-height: 1.5;
     color: var(--qc-text-secondary);
   }
 
@@ -1430,7 +1434,7 @@
     font: inherit;
     font-size: 12px;
     font-weight: 400;
-    line-height: 1.2;
+    line-height: 1.5;
     color: var(--qc-text-muted);
     cursor: pointer;
     -webkit-appearance: none;
@@ -1550,6 +1554,46 @@
     align-items: center;
   }
 
+  /* ── Tooltip ─────────────────────────────────────────────────── */
+
+  .qc-tooltip {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: var(--qc-text-primary);
+    background: var(--qc-bg-surface);
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.10),
+      0 0 0 1px var(--qc-border);
+    pointer-events: none;
+    user-select: none;
+    animation: qc-tooltip-in 120ms ease forwards;
+  }
+
+  @keyframes qc-tooltip-in {
+    from { opacity: 0; transform: translateY(calc(-100% + 4px)); }
+    to   { opacity: 1; transform: translateY(-100%); }
+  }
+
+  .qc-listening-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--qc-text-muted);
+    animation: qc-listening-pulse 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes qc-listening-pulse {
+    0%, 100% { opacity: 0.4; }
+    50%       { opacity: 1;   }
+  }
+
   .qc-notes-mic-cta__bar-center {
     display: flex;
     flex: 1;
@@ -1627,7 +1671,7 @@
 
   .qc-feed-current-text {
     font-size: 14px;
-    line-height: 1.2;
+    line-height: 1.5;
     font-weight: 400;
     color: var(--qc-text-primary);
     -webkit-user-select: text;
@@ -1639,7 +1683,7 @@
 
   /* Select-all row at the top of the feed */
   .qc-feed-select-all-row {
-    padding: 8px 20px 4px;
+    padding: 8px 20px 4px 13px;
   }
 
   .qc-feed-select-all-label {
@@ -1706,6 +1750,16 @@
 
   .qc-feed-entry--selected:hover {
     background: color-mix(in srgb, var(--qc-accent) 11%, transparent);
+  }
+
+  /* New-entry highlight — fades out over 5 s */
+  .qc-feed-entry--new {
+    animation: qc-entry-new-fade 5s ease-out forwards;
+  }
+
+  @keyframes qc-entry-new-fade {
+    0%   { background: var(--qc-entry-new-bg, rgba(0, 0, 0, 0.06)); }
+    100% { background: transparent; }
   }
 
   /* Bottom action bar (overlays FAB during selection mode) */
@@ -1845,7 +1899,7 @@
     margin: 0;
     padding: 1px 0;
     font-size: 13.5px;
-    line-height: 1.2;
+    line-height: 1.5;
     letter-spacing: -0.012em;
   }
 
