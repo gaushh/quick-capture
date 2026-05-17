@@ -11,6 +11,25 @@ declare global {
     | { ok: true; replacements: Array<{ old: string; new: string }>; cleanedText: string; summary?: string }
     | { ok: false; code: 'MISSING_API_KEY' | 'EMPTY_TEXT' | 'BAD_RESPONSE'; message?: string }
 
+  type PillExtractDestinationMode = 'tasks' | 'ideas' | 'reminders'
+
+  type PillExtractDestinationResult =
+    | {
+        ok: true
+        mode: PillExtractDestinationMode
+        tasks?: { text: string }[]
+        ideas?: { title?: string; text: string }[]
+        reminders?: {
+          text: string
+          scheduledAt?: string
+          dateText?: string
+          timeText?: string
+          needsDateTime?: boolean
+        }[]
+        summary?: string
+      }
+    | { ok: false; code: 'EMPTY_TEXT' | 'BAD_RESPONSE'; message?: string }
+
   interface PillApiLocal {
     resize: (size: { width: number; height: number }) => Promise<unknown | null>
     show: () => Promise<unknown | null>
@@ -20,6 +39,11 @@ declare global {
     onToggle: (cb: () => void) => () => void
     transcribeBlob: (args: { data: string; mime: string }) => Promise<PillTranscriptionResult>
     suggestEdits: (payload: { text: string }) => Promise<PillSuggestEditsResult>
+    extractDestination: (payload: {
+      mode: PillExtractDestinationMode
+      text: string
+      nowIso?: string
+    }) => Promise<PillExtractDestinationResult>
     formatChecklist: (transcript: string) => Promise<{ items: { text: string; checked: boolean }[] }>
     copyText: (text: string) => Promise<boolean>
     quit: () => Promise<unknown | null>

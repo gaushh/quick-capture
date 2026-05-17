@@ -11,12 +11,17 @@ import {
 import { createPortal } from 'react-dom'
 
 import {
+  Bell,
   Check,
   Copy,
   FileText,
+  Inbox,
+  Lightbulb,
+  ListChecks,
   Mic,
   Minus,
   Moon,
+  MoreHorizontal,
   Sparkles,
   Sun,
   Trash2,
@@ -37,9 +42,16 @@ import {
   bucketForTimestamp,
   classifySilentTranscript,
   formatHistoryTime,
+  loadCaptureDerivedItems,
   loadCaptureHistory,
   saveCaptureHistory,
+  saveCaptureDerivedItems,
   updateCaptureHistoryById,
+  type CaptureDerivedIdea,
+  type CaptureDerivedItems,
+  type CaptureDerivedReminder,
+  type CaptureDerivedTask,
+  type CaptureDestinationMode,
   type CaptureHistoryRow,
 } from './captureHistory.ts'
 import { blobToBase64, summarizeError } from './format.ts'
@@ -54,6 +66,7 @@ import {
 /* eslint-disable react-hooks/exhaustive-deps */
 
 const SILENT_HISTORY_PREVIEW = `Recording was silent. Click here to re-transcribe.`
+const MAX_TASK_ITEMS = 50
 
 function mergeNoteContinue(base: string, addition: string) {
   const a = base.trimEnd()
@@ -93,6 +106,45 @@ type PastCleanupDraft = {
   session: number
 }
 
+type ActivePanel = CaptureDestinationMode
+type MoveDestinationMode = Exclude<CaptureDestinationMode, `notes`>
+
+type MoveTaskDraft = {
+  id: string
+  mode: `tasks`
+  selected: boolean
+  text: string
+}
+
+type MoveIdeaDraft = {
+  id: string
+  mode: `ideas`
+  selected: boolean
+  title: string
+  text: string
+}
+
+type MoveReminderDraft = {
+  id: string
+  mode: `reminders`
+  selected: boolean
+  text: string
+  dateText: string
+  timeText: string
+  scheduledAt?: string
+  needsDateTime: boolean
+}
+
+type MoveReviewDraft = MoveTaskDraft | MoveIdeaDraft | MoveReminderDraft
+
+type MoveReviewState = {
+  rowId: string
+  mode: MoveDestinationMode
+  status: `loading` | `ready` | `error`
+  error: string | null
+  drafts: MoveReviewDraft[]
+}
+
 function buildTrackedSuggestionHtml(
   originalText: string,
   replacements: Array<{ old: string; new: string }>,
@@ -102,6 +154,19 @@ function buildTrackedSuggestionHtml(
   if (htmlApplied !== null && htmlApplied.includes(`qc-ai-del`)) return htmlApplied
 
   return applyWholeTextSuggestion(originalText, cleanedText)
+}
+
+function fallbackChecklistItems(raw: string) {
+  return raw
+    .split(/[\r\n.;]+/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .slice(0, MAX_TASK_ITEMS)
+    .map(text => ({ text, checked: false }))
+}
+
+function makeTaskId() {
+  return crypto.randomUUID?.() ?? `task-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 /** Resolve click on `.qc-ai-add`: keep wording as plain text, drop paired `.qc-ai-del` to its left (whitespace only between). */
@@ -425,6 +490,442 @@ function PastEntryText({
   )
 }
 
+type DestinationRailProps = {
+  activePanel: ActivePanel
+  noteCount: number
+  taskCount: number
+  ideaCount: number
+  reminderCount: number
+  onSelect: (panel: ActivePanel) => void
+}
+
+function DestinationRail({
+  activePanel,
+  noteCount,
+  taskCount,
+  ideaCount,
+  reminderCount,
+  onSelect,
+}: DestinationRailProps) {
+  const items: Array<{
+    panel: ActivePanel
+    label: string
+    count: number
+    icon: ReactElement
+  }> = [
+    { panel: `notes`, label: `All notes`, count: noteCount, icon: <InboxIcon size={16} /> },
+    { panel: `tasks`, label: `Tasks`, count: taskCount, icon: <ChecklistIcon size={16} /> },
+    { panel: `ideas`, label: `Ideas`, count: ideaCount, icon: <IdeaIcon size={16} /> },
+    { panel: `reminders`, label: `Reminders`, count: reminderCount, icon: <ReminderIcon size={16} /> },
+  ]
+
+  return (
+    <nav className="qc-left-rail" aria-label="Thought categories">
+      {items.map(item => (
+        <button
+          key={item.panel}
+          type="button"
+          className={`qc-left-rail__item${activePanel === item.panel ? ` qc-left-rail__item--active` : ``}`}
+          onClick={() => onSelect(item.panel)}
+          aria-pressed={activePanel === item.panel}
+        >
+          <span className="qc-left-rail__icon">{item.icon}</span>
+          <span>{item.label}</span>
+          {item.count > 0 && <span className="qc-left-rail__count">{item.count}</span>}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+type TaskManagerPanelProps = {
+  tasks: CaptureDerivedTask[]
+  addText: string
+  onAddTextChange: (value: string) => void
+  onAddTask: () => void
+  onCopy: () => void
+  onToggle: (taskId: string, checked: boolean) => void
+  onEdit: (taskId: string, text: string) => void
+  onRemove: (taskId: string) => void
+}
+
+function TaskManagerPanel({
+  tasks,
+  addText,
+  onAddTextChange,
+  onAddTask,
+  onCopy,
+  onToggle,
+  onEdit,
+  onRemove,
+}: TaskManagerPanelProps) {
+  const completedTasks = tasks.filter(task => task.checked).length
+  const openTasks = tasks.length - completedTasks
+
+  return (
+    <section className="qc-derived-panel" aria-label="Tasks">
+      <div className="qc-derived-panel__summary">
+        <div className="min-w-0">
+          <div className="qc-derived-panel__title">Tasks</div>
+          <div className="qc-derived-panel__subtitle">
+            {tasks.length ? `${openTasks} open · ${completedTasks} done` : `Move notes here to extract tasks`}
+          </div>
+        </div>
+        <button type="button" className="qc-derived-panel__ghost-btn" onClick={onCopy} disabled={!tasks.length}>
+          <CopyIcon size={14} />
+          Copy
+        </button>
+      </div>
+
+      <div className="qc-derived-panel__list">
+        {!tasks.length && (
+          <div className="qc-derived-panel__empty">
+            Choose <span>Move to...</span> on a note and select Tasks.
+          </div>
+        )}
+
+        {tasks.map(task => (
+          <div key={task.id} className="qc-derived-panel__item qc-derived-panel__item--task">
+            <input
+              type="checkbox"
+              checked={task.checked}
+              className="qc-derived-panel__checkbox"
+              onChange={e => onToggle(task.id, e.currentTarget.checked)}
+            />
+            <input
+              key={`${task.id}-${task.text}`}
+              type="text"
+              className="qc-derived-panel__input"
+              defaultValue={task.text}
+              onBlur={e => onEdit(task.id, e.currentTarget.value)}
+              onKeyDown={e => {
+                if (e.key === `Enter`) e.currentTarget.blur()
+              }}
+              aria-label="Task"
+            />
+            <button
+              type="button"
+              className="qc-derived-panel__remove"
+              onClick={() => onRemove(task.id)}
+              aria-label="Remove task"
+            >
+              <XIcon size={13} />
+            </button>
+            {task.sourceText && <p className="qc-derived-panel__source">{task.sourceText}</p>}
+          </div>
+        ))}
+      </div>
+
+      <form
+        className="qc-derived-panel__add"
+        onSubmit={e => {
+          e.preventDefault()
+          onAddTask()
+        }}
+      >
+        <input
+          type="text"
+          value={addText}
+          onChange={e => onAddTextChange(e.currentTarget.value)}
+          placeholder="Add task"
+          aria-label="Add task"
+          maxLength={280}
+        />
+        <button type="submit" disabled={!addText.trim()}>Add</button>
+      </form>
+    </section>
+  )
+}
+
+type IdeasPanelProps = {
+  ideas: CaptureDerivedIdea[]
+  onEdit: (ideaId: string, patch: Partial<Pick<CaptureDerivedIdea, `title` | `text`>>) => void
+  onRemove: (ideaId: string) => void
+}
+
+function IdeasPanel({ ideas, onEdit, onRemove }: IdeasPanelProps) {
+  return (
+    <section className="qc-derived-panel" aria-label="Ideas">
+      <div className="qc-derived-panel__summary">
+        <div>
+          <div className="qc-derived-panel__title">Ideas</div>
+          <div className="qc-derived-panel__subtitle">
+            {ideas.length ? `${ideas.length} saved` : `Move notes here to shape ideas`}
+          </div>
+        </div>
+      </div>
+
+      <div className="qc-derived-panel__list">
+        {!ideas.length && (
+          <div className="qc-derived-panel__empty">
+            Choose <span>Move to...</span> on a note and select Ideas.
+          </div>
+        )}
+
+        {ideas.map(idea => (
+          <article key={idea.id} className="qc-derived-panel__card">
+            <div className="qc-derived-panel__card-head">
+              <input
+                key={`${idea.id}-title-${idea.title ?? ``}`}
+                type="text"
+                className="qc-derived-panel__title-input"
+                defaultValue={idea.title ?? ``}
+                placeholder="Untitled idea"
+                onBlur={e => onEdit(idea.id, { title: e.currentTarget.value })}
+                aria-label="Idea title"
+              />
+              <button
+                type="button"
+                className="qc-derived-panel__remove"
+                onClick={() => onRemove(idea.id)}
+                aria-label="Remove idea"
+              >
+                <XIcon size={13} />
+              </button>
+            </div>
+            <textarea
+              key={`${idea.id}-text-${idea.text}`}
+              className="qc-derived-panel__textarea"
+              defaultValue={idea.text}
+              onBlur={e => onEdit(idea.id, { text: e.currentTarget.value })}
+              aria-label="Idea"
+            />
+            {idea.sourceText && <p className="qc-derived-panel__source">{idea.sourceText}</p>}
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+type RemindersPanelProps = {
+  reminders: CaptureDerivedReminder[]
+  onToggle: (reminderId: string, done: boolean) => void
+  onEdit: (reminderId: string, patch: Partial<Pick<CaptureDerivedReminder, `text` | `dateText` | `timeText`>>) => void
+  onRemove: (reminderId: string) => void
+}
+
+function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPanelProps) {
+  const openReminders = reminders.filter(reminder => !reminder.done).length
+
+  return (
+    <section className="qc-derived-panel" aria-label="Reminders">
+      <div className="qc-derived-panel__summary">
+        <div>
+          <div className="qc-derived-panel__title">Reminders</div>
+          <div className="qc-derived-panel__subtitle">
+            {reminders.length ? `${openReminders} open · ${reminders.length - openReminders} done` : `Move notes here to capture follow-ups`}
+          </div>
+        </div>
+      </div>
+
+      <div className="qc-derived-panel__list">
+        {!reminders.length && (
+          <div className="qc-derived-panel__empty">
+            Choose <span>Move to...</span> on a note and select Reminders.
+          </div>
+        )}
+
+        {reminders.map(reminder => (
+          <div key={reminder.id} className="qc-derived-panel__item qc-derived-panel__item--reminder">
+            <input
+              type="checkbox"
+              checked={reminder.done}
+              className="qc-derived-panel__checkbox"
+              onChange={e => onToggle(reminder.id, e.currentTarget.checked)}
+            />
+            <input
+              key={`${reminder.id}-text-${reminder.text}`}
+              type="text"
+              className="qc-derived-panel__input"
+              defaultValue={reminder.text}
+              onBlur={e => onEdit(reminder.id, { text: e.currentTarget.value })}
+              aria-label="Reminder"
+            />
+            <button
+              type="button"
+              className="qc-derived-panel__remove"
+              onClick={() => onRemove(reminder.id)}
+              aria-label="Remove reminder"
+            >
+              <XIcon size={13} />
+            </button>
+            <div className="qc-derived-panel__datetime">
+              <input
+                key={`${reminder.id}-date-${reminder.dateText ?? ``}`}
+                type="date"
+                defaultValue={reminder.dateText ?? ``}
+                onBlur={e => onEdit(reminder.id, { dateText: e.currentTarget.value })}
+                aria-label="Reminder date"
+              />
+              <input
+                key={`${reminder.id}-time-${reminder.timeText ?? ``}`}
+                type="time"
+                defaultValue={reminder.timeText ?? ``}
+                onBlur={e => onEdit(reminder.id, { timeText: e.currentTarget.value })}
+                aria-label="Reminder time"
+              />
+              {reminder.needsDateTime && <span>Needs date/time</span>}
+            </div>
+            {reminder.sourceText && <p className="qc-derived-panel__source">{reminder.sourceText}</p>}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+type MoveReviewModalProps = {
+  state: MoveReviewState
+  row: CaptureHistoryRow | null
+  onClose: () => void
+  onAccept: () => void
+  onToggleDraft: (draftId: string, selected: boolean) => void
+  onUpdateDraft: (draftId: string, patch: Partial<MoveReviewDraft>) => void
+}
+
+function destinationLabel(mode: MoveDestinationMode) {
+  if (mode === `tasks`) return `Tasks`
+  if (mode === `ideas`) return `Ideas`
+  return `Reminders`
+}
+
+function MoveReviewModal({
+  state,
+  row,
+  onClose,
+  onAccept,
+  onToggleDraft,
+  onUpdateDraft,
+}: MoveReviewModalProps) {
+  const selectedCount = state.drafts.filter(draft => draft.selected).length
+  const hasMissingReminderTime = state.drafts.some(draft =>
+    draft.mode === `reminders` &&
+    draft.selected &&
+    (!draft.dateText || !draft.timeText),
+  )
+  const canAccept =
+    state.status === `ready` &&
+    selectedCount > 0 &&
+    !hasMissingReminderTime
+
+  return createPortal(
+    <div className="qc-move-modal" role="dialog" aria-modal="true" aria-label={`Move to ${destinationLabel(state.mode)}`}>
+      <div className="qc-move-modal__sheet">
+        <div className="qc-move-modal__header">
+          <div className="min-w-0">
+            <div className="qc-move-modal__title">Move to {destinationLabel(state.mode)}</div>
+            <p>{row?.text ?? ``}</p>
+          </div>
+          <button type="button" className="qc-move-modal__icon-btn" onClick={onClose} aria-label="Close">
+            <XIcon size={14} />
+          </button>
+        </div>
+
+        <div className="qc-move-modal__body">
+          {state.status === `loading` && (
+            <div className="qc-move-modal__status">
+              <div
+                className="h-4 w-4 animate-spin rounded-full border-2 border-solid"
+                style={{
+                  borderColor: `var(--qc-border-strong)`,
+                  borderTopColor: `var(--qc-accent)`,
+                }}
+              />
+              <span>Finding {destinationLabel(state.mode).toLowerCase()}…</span>
+            </div>
+          )}
+
+          {state.status === `error` && (
+            <div className="qc-move-modal__empty">
+              {state.error ?? `Could not extract anything useful.`}
+            </div>
+          )}
+
+          {state.status === `ready` && state.drafts.length === 0 && (
+            <div className="qc-move-modal__empty">
+              Nothing obvious to add. Try refining the note or choose another destination.
+            </div>
+          )}
+
+          {state.status === `ready` && state.drafts.map(draft => (
+            <div key={draft.id} className="qc-move-modal__draft">
+              <input
+                type="checkbox"
+                checked={draft.selected}
+                onChange={e => onToggleDraft(draft.id, e.currentTarget.checked)}
+                aria-label="Include item"
+              />
+
+              {draft.mode === `tasks` && (
+                <input
+                  type="text"
+                  value={draft.text}
+                  onChange={e => onUpdateDraft(draft.id, { text: e.currentTarget.value } as Partial<MoveReviewDraft>)}
+                  aria-label="Task draft"
+                />
+              )}
+
+              {draft.mode === `ideas` && (
+                <div className="qc-move-modal__idea-fields">
+                  <input
+                    type="text"
+                    value={draft.title}
+                    placeholder="Idea title"
+                    onChange={e => onUpdateDraft(draft.id, { title: e.currentTarget.value } as Partial<MoveReviewDraft>)}
+                    aria-label="Idea title"
+                  />
+                  <textarea
+                    value={draft.text}
+                    onChange={e => onUpdateDraft(draft.id, { text: e.currentTarget.value } as Partial<MoveReviewDraft>)}
+                    aria-label="Idea draft"
+                  />
+                </div>
+              )}
+
+              {draft.mode === `reminders` && (
+                <div className="qc-move-modal__reminder-fields">
+                  <input
+                    type="text"
+                    value={draft.text}
+                    onChange={e => onUpdateDraft(draft.id, { text: e.currentTarget.value } as Partial<MoveReviewDraft>)}
+                    aria-label="Reminder draft"
+                  />
+                  <div>
+                    <input
+                      type="date"
+                      value={draft.dateText}
+                      onChange={e => onUpdateDraft(draft.id, { dateText: e.currentTarget.value } as Partial<MoveReviewDraft>)}
+                      aria-label="Reminder date"
+                    />
+                    <input
+                      type="time"
+                      value={draft.timeText}
+                      onChange={e => onUpdateDraft(draft.id, { timeText: e.currentTarget.value } as Partial<MoveReviewDraft>)}
+                      aria-label="Reminder time"
+                    />
+                  </div>
+                  {(!draft.dateText || !draft.timeText) && <span>Date and time are required.</span>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="qc-move-modal__footer">
+          <button type="button" className="qc-move-modal__secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="qc-move-modal__primary" disabled={!canAccept} onClick={onAccept}>
+            Add {selectedCount || ``} {destinationLabel(state.mode)}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 
 const SW = 1.65 // shared Lucide stroke weight
 
@@ -450,14 +951,34 @@ function CheckIcon({ size = 18 }: { size?: number }) {
   return <Check size={size} strokeWidth={SW} />
 }
 
+function ChecklistIcon({ size = 15 }: { size?: number }) {
+  return <ListChecks size={size} strokeWidth={SW} />
+}
+
+function InboxIcon({ size = 15 }: { size?: number }) {
+  return <Inbox size={size} strokeWidth={SW} />
+}
+
+function IdeaIcon({ size = 15 }: { size?: number }) {
+  return <Lightbulb size={size} strokeWidth={SW} />
+}
+
+function ReminderIcon({ size = 15 }: { size?: number }) {
+  return <Bell size={size} strokeWidth={SW} />
+}
+
+function MoreIcon({ size = 15 }: { size?: number }) {
+  return <MoreHorizontal size={size} strokeWidth={SW} />
+}
+
 /** Title-bar style minimize (floating window chrome). */
 function WindowMinimizeIcon() {
-  return <Minus size={14} strokeWidth={SW} aria-hidden />
+  return <Minus size={15} strokeWidth={SW} aria-hidden />
 }
 
 /** Dismiss overlay (hides pill; same behaviour as ESC). */
 function WindowCloseIcon() {
-  return <X size={14} strokeWidth={SW} aria-hidden />
+  return <X size={15} strokeWidth={SW} aria-hidden />
 }
 
 function XIcon({ size = 13 }: { size?: number }) {
@@ -498,6 +1019,9 @@ export function QuickCapture() {
 
   const [phase, setPhase] = useState<PhaseKind>('idle')
   const [historyRows, setHistoryRows] = useState<CaptureHistoryRow[]>(() => loadCaptureHistory())
+  const [derivedItems, setDerivedItems] = useState<CaptureDerivedItems>(() => loadCaptureDerivedItems())
+  const [activePanel, setActivePanel] = useState<ActivePanel>(`notes`)
+  const [taskAddText, setTaskAddText] = useState(``)
   const [liveText, setLiveText] = useState('')
   const [finalText, setFinalText] = useState('')
   const finalTextRef = useRef(finalText)
@@ -515,14 +1039,12 @@ export function QuickCapture() {
   const [feedStampNowMs, setFeedStampNowMs] = useState(() => nowMs())
   const [aiSuggestBusy, setAiSuggestBusy] = useState(false)
   const [aiSuggestBanner, setAiSuggestBanner] = useState<string | null>(null)
-  const [outputMode, setOutputMode] = useState<'note' | 'checklist'>('note')
-  const [checklistItems, setChecklistItems] = useState<{ text: string; checked: boolean }[]>([])
-  const [checklistBusy, setChecklistBusy] = useState(false)
-  const [checklistHighlight, setChecklistHighlight] = useState(false)
   const [feedRowActionBusy, setFeedRowActionBusy] = useState<string | null>(null)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [deleteAckText, setDeleteAckText] = useState<string | null>(null)
+  const [feedAckText, setFeedAckText] = useState<string | null>(null)
+  const [movePopoverRowId, setMovePopoverRowId] = useState<string | null>(null)
+  const [moveReview, setMoveReview] = useState<MoveReviewState | null>(null)
   /** Idle pill: hover expands to reveal dictation (second row). */
 
   const trackedNoteEditorRef = useRef<HTMLDivElement | null>(null)
@@ -530,8 +1052,6 @@ export function QuickCapture() {
   const noteTranscriptScrollRef = useRef<HTMLDivElement | null>(null)
   const noteContinueBaseRef = useRef<string | null>(null)
   const aiSuggestBannerTimerRef = useRef<number | null>(null)
-
-  const outputModeRef = useRef(outputMode)
 
   // Recording always lives inside the notes card — treat recording phase as output for sizing
   const layoutPhaseForShell =
@@ -565,10 +1085,6 @@ export function QuickCapture() {
     phaseRef.current = phase
   }, [phase])
 
-  useEffect(() => {
-    outputModeRef.current = outputMode
-  }, [outputMode])
-
   useLayoutEffect(() => {
     if (
       phase !== `output` ||
@@ -601,18 +1117,18 @@ export function QuickCapture() {
     if (!el) return
 
     window.requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight
+      el.scrollTop = 0
     })
   }, [phase, liveText])
 
-  /** After each capture, history is oldest→newest; keep the latest entry in view. */
+  /** Notes are newest-first; keep fresh captures pinned near the top. */
   useLayoutEffect(() => {
     if (phase !== `output`) return
     const el = noteTranscriptScrollRef.current
     if (!el) return
 
     window.requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight
+      el.scrollTop = 0
     })
   }, [phase, historyRows, noteCapturedAt, finalText])
 
@@ -693,20 +1209,24 @@ export function QuickCapture() {
     }
   }
 
-  function clearDeleteAckTimer() {
+  function clearFeedAckTimer() {
     if (deleteAckTimerRef.current !== null) {
       clearTimeout(deleteAckTimerRef.current)
       deleteAckTimerRef.current = null
     }
   }
 
-  function showDeleteAcknowledgement(count: number) {
-    clearDeleteAckTimer()
-    setDeleteAckText(count === 1 ? `Deleted 1 note` : `Deleted ${count} notes`)
+  function showFeedAcknowledgement(message: string) {
+    clearFeedAckTimer()
+    setFeedAckText(message)
     deleteAckTimerRef.current = setTimeout(() => {
       deleteAckTimerRef.current = null
-      setDeleteAckText(null)
+      setFeedAckText(null)
     }, 1800)
+  }
+
+  function showDeleteAcknowledgement(count: number) {
+    showFeedAcknowledgement(count === 1 ? `Deleted 1 note` : `Deleted ${count} notes`)
   }
 
   function resetLatestCopyState() {
@@ -752,12 +1272,11 @@ export function QuickCapture() {
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
     setPastCleanupDraft(null)
-    clearDeleteAckTimer()
-    setDeleteAckText(null)
-    setOutputMode(`note`)
-    setChecklistItems([])
-    setChecklistBusy(false)
-    setChecklistHighlight(false)
+    clearFeedAckTimer()
+    setFeedAckText(null)
+    setActivePanel(`notes`)
+    setMovePopoverRowId(null)
+    setMoveReview(null)
     setPhase(`output`)
   }
 
@@ -778,12 +1297,11 @@ export function QuickCapture() {
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
     setPastCleanupDraft(null)
-    clearDeleteAckTimer()
-    setDeleteAckText(null)
-    setOutputMode(`note`)
-    setChecklistItems([])
-    setChecklistBusy(false)
-    setChecklistHighlight(false)
+    clearFeedAckTimer()
+    setFeedAckText(null)
+    setActivePanel(`notes`)
+    setMovePopoverRowId(null)
+    setMoveReview(null)
     void startRecording({ embeddedInScratchpad: true })
   }
 
@@ -820,11 +1338,9 @@ export function QuickCapture() {
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
     setPastCleanupDraft(null)
-    // Only reset output mode when starting fresh — preserve checklist state for continuations
-    if (opts?.continueFromNote === undefined) {
-      setOutputMode('note')
-      setChecklistItems([])
-    }
+    setActivePanel(`notes`)
+    setMovePopoverRowId(null)
+    setMoveReview(null)
     teardownMic()
 
     try {
@@ -980,8 +1496,8 @@ export function QuickCapture() {
             resolved = txt.trim() || `No speech detected.`
           }
         } else {
-          // No Whisper bridge (browser-only mode) — SpeechRecognition is the only source.
-          resolved = currentLive || `No speech detected.`
+          // No Whisper bridge outside demo mode — live SpeechRecognition is preview-only.
+          resolved = `Transcription failed.`
         }
       } catch {
         resolved = `Transcription failed.`
@@ -1001,9 +1517,31 @@ export function QuickCapture() {
     const FALLBACK_MSGS = [`No speech detected.`, `No audible speech captured.`, `Transcription failed.`]
     const resolvedIsEmpty = !resolved.trim() || FALLBACK_MSGS.includes(resolved.trim())
 
+    if (resolvedIsEmpty) {
+      const rows = loadCaptureHistory()
+      const latest = rows[0]
+
+      setHistoryRows(rows)
+      setLiveText(``)
+      if (continueBase !== null) {
+        setFinalText(continueBase)
+      } else {
+        setFinalText(latest?.text ?? ``)
+        setNoteCapturedAt(latest?.at ?? null)
+      }
+      setFeedStampNowMs(nowMs())
+      setNotePresentationMode(`plain`)
+      setTrackedOriginalTranscript(null)
+      setPastCleanupDraft(null)
+      setIsProcessingWhisper(false)
+      setPhase(`output`)
+      showFeedAcknowledgement(`No speech captured`)
+      return
+    }
+
     const merged =
       continueBase !== null ?
-        (resolvedIsEmpty ? continueBase : mergeNoteContinue(continueBase, resolved))
+        mergeNoteContinue(continueBase, resolved)
       : resolved
 
     const captured = addCaptureHistoryEntry(merged)
@@ -1019,26 +1557,6 @@ export function QuickCapture() {
     setPastCleanupDraft(null)
     setIsProcessingWhisper(false)
     setPhase(`output`)
-
-    // If user was in checklist mode, re-format the combined text as tasks
-    if (outputModeRef.current === 'checklist' && whisperBridge && !resolvedIsEmpty) {
-      setOutputMode('checklist')
-      setChecklistBusy(true)
-      void (async () => {
-        try {
-          const result = await whisperBridge.formatChecklist(merged.trim())
-          if (result?.items?.length) {
-            setChecklistItems(result.items)
-            setChecklistHighlight(true)
-            setTimeout(() => setChecklistHighlight(false), result.items.length * 90 + 1200)
-          }
-        } catch { /* ignore */ }
-        finally { setChecklistBusy(false) }
-      })()
-    }
-
-
-
   }
 
   /** Shared reset for idle pill UI; pair with `pill.hide()` (dismiss) or `pill.show()` (collapse). */
@@ -1062,14 +1580,13 @@ export function QuickCapture() {
     setNoteCapturedAt(null)
     noteContinueBaseRef.current = null
     setIsProcessingWhisper(false)
-    setOutputMode('note')
-    setChecklistItems([])
-    setChecklistBusy(false)
-    setChecklistHighlight(false)
     setIsSelectionMode(false)
     setSelectedIds(new Set())
-    clearDeleteAckTimer()
-    setDeleteAckText(null)
+    clearFeedAckTimer()
+    setFeedAckText(null)
+    setActivePanel(`notes`)
+    setMovePopoverRowId(null)
+    setMoveReview(null)
     setPhase('idle')
   }
 
@@ -1139,8 +1656,6 @@ export function QuickCapture() {
       setTrackedOriginalTranscript(trimmedPlain)
       setPastCleanupDraft(null)
       resetLatestCopyState()
-      // Checklist branch renders before tracked — leave tasks view so the diff UI can show.
-      setOutputMode(`note`)
       setNotePresentationMode(`tracked`)
       setTrackedNoteSession(n => n + 1)
 
@@ -1152,14 +1667,195 @@ export function QuickCapture() {
     }
   }
 
+  function saveDerivedItems(next: CaptureDerivedItems) {
+    saveCaptureDerivedItems(next)
+    setDerivedItems(next)
+  }
+
+  function saveTasks(tasks: CaptureDerivedTask[]) {
+    saveDerivedItems({ ...derivedItems, tasks: tasks.slice(0, 300) })
+  }
+
+  function saveIdeas(ideas: CaptureDerivedIdea[]) {
+    saveDerivedItems({ ...derivedItems, ideas: ideas.slice(0, 300) })
+  }
+
+  function saveReminders(reminders: CaptureDerivedReminder[]) {
+    saveDerivedItems({ ...derivedItems, reminders: reminders.slice(0, 300) })
+  }
+
+  function fallbackMoveDrafts(row: CaptureHistoryRow, mode: MoveDestinationMode): MoveReviewDraft[] {
+    const sourceText = row.text.trim()
+    if (!sourceText.length) return []
+
+    if (mode === `tasks`) {
+      return fallbackChecklistItems(sourceText).map(item => ({
+        id: makeTaskId(),
+        mode: `tasks`,
+        selected: true,
+        text: item.text,
+      }))
+    }
+
+    if (mode === `ideas`) {
+      return [{
+        id: makeTaskId(),
+        mode: `ideas`,
+        selected: true,
+        title: ``,
+        text: sourceText,
+      }]
+    }
+
+    return [{
+      id: makeTaskId(),
+      mode: `reminders`,
+      selected: true,
+      text: sourceText,
+      dateText: ``,
+      timeText: ``,
+      needsDateTime: true,
+    }]
+  }
+
+  function dateFieldsFromScheduledAt(scheduledAt?: string) {
+    if (!scheduledAt) return { dateText: ``, timeText: `` }
+    const parsed = new Date(scheduledAt)
+    if (Number.isNaN(parsed.getTime())) return { dateText: ``, timeText: `` }
+
+    const yyyy = parsed.getFullYear()
+    const mm = `${parsed.getMonth() + 1}`.padStart(2, `0`)
+    const dd = `${parsed.getDate()}`.padStart(2, `0`)
+    const hh = `${parsed.getHours()}`.padStart(2, `0`)
+    const min = `${parsed.getMinutes()}`.padStart(2, `0`)
+
+    return { dateText: `${yyyy}-${mm}-${dd}`, timeText: `${hh}:${min}` }
+  }
+
+  function draftsFromExtraction(
+    row: CaptureHistoryRow,
+    mode: MoveDestinationMode,
+    result: PillExtractDestinationResult | null,
+  ): MoveReviewDraft[] {
+    if (!result?.ok) return fallbackMoveDrafts(row, mode)
+
+    if (mode === `tasks`) {
+      const drafts = (result.tasks ?? [])
+        .map(item => `${item.text ?? ``}`.trim())
+        .filter(Boolean)
+        .slice(0, MAX_TASK_ITEMS)
+        .map(text => ({
+          id: makeTaskId(),
+          mode: `tasks` as const,
+          selected: true,
+          text,
+        }))
+
+      return drafts.length ? drafts : []
+    }
+
+    if (mode === `ideas`) {
+      const drafts = (result.ideas ?? [])
+        .map(item => ({
+          title: `${item.title ?? ``}`.trim(),
+          text: `${item.text ?? ``}`.trim(),
+        }))
+        .filter(item => item.text.length > 0)
+        .slice(0, 20)
+        .map(item => ({
+          id: makeTaskId(),
+          mode: `ideas` as const,
+          selected: true,
+          title: item.title,
+          text: item.text,
+        }))
+
+      return drafts.length ? drafts : []
+    }
+
+    const drafts = (result.reminders ?? [])
+      .map(item => ({
+        text: `${item.text ?? ``}`.trim(),
+        scheduledAt: `${item.scheduledAt ?? ``}`.trim() || undefined,
+        dateText: `${item.dateText ?? ``}`.trim(),
+        timeText: `${item.timeText ?? ``}`.trim(),
+      }))
+      .filter(item => item.text.length > 0)
+      .slice(0, 20)
+      .map(item => {
+        const derivedFields = dateFieldsFromScheduledAt(item.scheduledAt)
+        const dateText = item.dateText || derivedFields.dateText
+        const timeText = item.timeText || derivedFields.timeText
+
+        return {
+          id: makeTaskId(),
+          mode: `reminders` as const,
+          selected: true,
+          text: item.text,
+          ...(item.scheduledAt ? { scheduledAt: item.scheduledAt } : {}),
+          dateText,
+          timeText,
+          needsDateTime: !dateText || !timeText,
+        }
+      })
+
+    return drafts.length ? drafts : []
+  }
+
+  async function openMoveReview(row: CaptureHistoryRow, mode: MoveDestinationMode, evt?: MouseEvent) {
+    evt?.stopPropagation()
+    setMovePopoverRowId(null)
+
+    const sourceText = row.text.trim()
+    if (!sourceText.length || row.silent || classifySilentTranscript(sourceText)) {
+      showFeedAcknowledgement(`No speech to move`)
+      return
+    }
+    if (isEmbeddedRecording || isProcessingWhisper) return
+
+    setMoveReview({
+      rowId: row.id,
+      mode,
+      status: `loading`,
+      error: null,
+      drafts: [],
+    })
+
+    try {
+      const result = window.pill ?
+        await window.pill.extractDestination({
+          mode,
+          text: sourceText,
+          nowIso: new Date().toISOString(),
+        })
+      : null
+      const drafts = draftsFromExtraction(row, mode, result)
+
+      setMoveReview({
+        rowId: row.id,
+        mode,
+        status: `ready`,
+        error: null,
+        drafts,
+      })
+    } catch {
+      const drafts = fallbackMoveDrafts(row, mode)
+      setMoveReview({
+        rowId: row.id,
+        mode,
+        status: drafts.length ? `ready` : `error`,
+        error: drafts.length ? null : `Could not extract ${destinationLabel(mode).toLowerCase()} from this note.`,
+        drafts,
+      })
+    }
+  }
+
   async function copyText() {
     cancelAutoDismiss()
     if (copyOk) return
 
     let text = finalText
-    if (outputMode === 'checklist' && checklistItems.length) {
-      text = checklistItems.map(i => `${i.checked ? '☑' : '☐'} ${i.text}`).join('\n')
-    } else if (
+    if (
       phase === `output` &&
       notePresentationMode === `tracked` &&
       trackedNoteEditorRef.current
@@ -1179,7 +1875,14 @@ export function QuickCapture() {
     isEmbeddedRecording ? mergeNoteContinue(finalText, liveText) : phase === `output` ? finalText : liveText
   const displayText = transcriptPlainMain
 
-  const chronoRows = useMemo(() => [...historyRows].reverse(), [historyRows])
+  const taskOpenCount = useMemo(
+    () => derivedItems.tasks.filter(task => !task.checked).length,
+    [derivedItems.tasks],
+  )
+  const reminderOpenCount = useMemo(
+    () => derivedItems.reminders.filter(reminder => !reminder.done).length,
+    [derivedItems.reminders],
+  )
 
   const liveFeedStamp = useMemo(() => {
     if (noteCapturedAt === null) return ``
@@ -1188,6 +1891,10 @@ export function QuickCapture() {
 
   const latestPlainForSilent = phase === `output` || isEmbeddedRecording ? `${finalText}`.trim() : ``
   const latestSilentClass = classifySilentTranscript(latestPlainForSilent)
+  const showingDerivedPanel = activePanel !== `notes` && !isSelectionMode && !isEmbeddedRecording
+  const activeMoveReviewRow = moveReview ?
+    historyRows.find(row => row.id === moveReview.rowId) ?? null
+  : null
 
   function cancelAutoDismiss() {
     if (autoDismissTimerRef.current !== null) {
@@ -1215,6 +1922,258 @@ export function QuickCapture() {
     } catch {
       //
     }
+  }
+
+  function addManualTask() {
+    const text = taskAddText.trim()
+    if (!text.length) return
+
+    const now = nowMs()
+    saveTasks([
+      {
+        id: makeTaskId(),
+        sourceNoteId: null,
+        sourceText: ``,
+        text,
+        checked: false,
+        createdAt: now,
+        updatedAt: now,
+      },
+      ...derivedItems.tasks,
+    ])
+    setTaskAddText(``)
+  }
+
+  function toggleTask(taskId: string, checked: boolean) {
+    saveTasks(derivedItems.tasks.map(item =>
+      item.id === taskId ? { ...item, checked, updatedAt: nowMs() } : item,
+    ))
+  }
+
+  function editTask(taskId: string, text: string) {
+    const trimmed = text.trim()
+    saveTasks(
+      derivedItems.tasks
+        .map(item => item.id === taskId ? { ...item, text: trimmed, updatedAt: nowMs() } : item)
+        .filter(item => item.text.length > 0),
+    )
+  }
+
+  function removeTask(taskId: string) {
+    saveTasks(derivedItems.tasks.filter(item => item.id !== taskId))
+  }
+
+  function editIdea(ideaId: string, patch: Partial<Pick<CaptureDerivedIdea, `title` | `text`>>) {
+    saveIdeas(
+      derivedItems.ideas
+        .map(item => {
+          if (item.id !== ideaId) return item
+          const title = patch.title !== undefined ? patch.title.trim() : item.title
+          const text = patch.text !== undefined ? patch.text.trim() : item.text
+
+          return {
+            ...item,
+            ...(title ? { title } : { title: undefined }),
+            text,
+            updatedAt: nowMs(),
+          }
+        })
+        .filter(item => item.text.length > 0),
+    )
+  }
+
+  function removeIdea(ideaId: string) {
+    saveIdeas(derivedItems.ideas.filter(item => item.id !== ideaId))
+  }
+
+  function combineReminderDateTime(dateText?: string, timeText?: string) {
+    const date = `${dateText ?? ``}`.trim()
+    const time = `${timeText ?? ``}`.trim()
+    if (!date || !time) return undefined
+
+    const parsed = new Date(`${date}T${time}`)
+    if (Number.isNaN(parsed.getTime())) return undefined
+
+    return parsed.toISOString()
+  }
+
+  function toggleReminder(reminderId: string, done: boolean) {
+    saveReminders(derivedItems.reminders.map(item =>
+      item.id === reminderId ? { ...item, done, updatedAt: nowMs() } : item,
+    ))
+  }
+
+  function editReminder(
+    reminderId: string,
+    patch: Partial<Pick<CaptureDerivedReminder, `text` | `dateText` | `timeText`>>,
+  ) {
+    saveReminders(
+      derivedItems.reminders
+        .map(item => {
+          if (item.id !== reminderId) return item
+          const text = patch.text !== undefined ? patch.text.trim() : item.text
+          const dateText = patch.dateText !== undefined ? patch.dateText.trim() : item.dateText
+          const timeText = patch.timeText !== undefined ? patch.timeText.trim() : item.timeText
+          const scheduledAt = combineReminderDateTime(dateText, timeText)
+
+          return {
+            ...item,
+            text,
+            ...(dateText ? { dateText } : { dateText: undefined }),
+            ...(timeText ? { timeText } : { timeText: undefined }),
+            ...(scheduledAt ? { scheduledAt } : { scheduledAt: undefined }),
+            needsDateTime: !dateText || !timeText,
+            updatedAt: nowMs(),
+          }
+        })
+        .filter(item => item.text.length > 0),
+    )
+  }
+
+  function removeReminder(reminderId: string) {
+    saveReminders(derivedItems.reminders.filter(item => item.id !== reminderId))
+  }
+
+  async function copyTasks() {
+    const lines = derivedItems.tasks.map(item => `${item.checked ? `☑` : `☐`} ${item.text}`)
+
+    if (!lines.length) return
+
+    try {
+      await writeClipboardText(lines.join(`\n`))
+      showFeedAcknowledgement(`Tasks copied`)
+    } catch {
+      //
+    }
+  }
+
+  function toggleMoveDraft(draftId: string, selected: boolean) {
+    setMoveReview(prev => prev ? {
+      ...prev,
+      drafts: prev.drafts.map(draft => draft.id === draftId ? { ...draft, selected } : draft),
+    } : prev)
+  }
+
+  function updateMoveDraft(draftId: string, patch: Partial<MoveReviewDraft>) {
+    setMoveReview(prev => prev ? {
+      ...prev,
+      drafts: prev.drafts.map(draft => {
+        if (draft.id !== draftId) return draft
+
+        if (draft.mode === `tasks`) {
+          return {
+            ...draft,
+            text: `text` in patch && typeof patch.text === `string` ? patch.text : draft.text,
+          }
+        }
+
+        if (draft.mode === `ideas`) {
+          return {
+            ...draft,
+            title: `title` in patch && typeof patch.title === `string` ? patch.title : draft.title,
+            text: `text` in patch && typeof patch.text === `string` ? patch.text : draft.text,
+          }
+        }
+
+        const dateText = `dateText` in patch && typeof patch.dateText === `string` ?
+          patch.dateText
+        : draft.dateText
+        const timeText = `timeText` in patch && typeof patch.timeText === `string` ?
+          patch.timeText
+        : draft.timeText
+
+        return {
+          ...draft,
+          text: `text` in patch && typeof patch.text === `string` ? patch.text : draft.text,
+          dateText,
+          timeText,
+          scheduledAt: combineReminderDateTime(dateText, timeText),
+          needsDateTime: !dateText || !timeText,
+        }
+      }),
+    } : prev)
+  }
+
+  function acceptMoveReview() {
+    if (!moveReview || moveReview.status !== `ready`) return
+
+    const row = historyRows.find(item => item.id === moveReview.rowId)
+    if (!row) return
+
+    const selectedDrafts = moveReview.drafts.filter(draft => draft.selected)
+    if (!selectedDrafts.length) return
+
+    const sourceText = row.text
+    const createdAt = nowMs()
+
+    if (moveReview.mode === `tasks`) {
+      const nextTasks = selectedDrafts
+        .filter((draft): draft is MoveTaskDraft => draft.mode === `tasks`)
+        .map(draft => ({
+          id: makeTaskId(),
+          sourceNoteId: row.id,
+          sourceText,
+          text: draft.text.trim(),
+          checked: false,
+          createdAt,
+          updatedAt: createdAt,
+        }))
+        .filter(item => item.text.length > 0)
+
+      saveTasks([...nextTasks, ...derivedItems.tasks])
+      setActivePanel(`tasks`)
+      showFeedAcknowledgement(`${nextTasks.length} added to Tasks`)
+    }
+
+    if (moveReview.mode === `ideas`) {
+      const nextIdeas = selectedDrafts
+        .filter((draft): draft is MoveIdeaDraft => draft.mode === `ideas`)
+        .map(draft => ({
+          id: makeTaskId(),
+          sourceNoteId: row.id,
+          sourceText,
+          title: draft.title.trim() || undefined,
+          text: draft.text.trim(),
+          createdAt,
+          updatedAt: createdAt,
+        }))
+        .filter(item => item.text.length > 0)
+
+      saveIdeas([...nextIdeas, ...derivedItems.ideas])
+      setActivePanel(`ideas`)
+      showFeedAcknowledgement(`${nextIdeas.length} added to Ideas`)
+    }
+
+    if (moveReview.mode === `reminders`) {
+      const nextReminders = selectedDrafts
+        .filter((draft): draft is MoveReminderDraft => draft.mode === `reminders`)
+        .map(draft => {
+          const dateText = draft.dateText.trim()
+          const timeText = draft.timeText.trim()
+          const scheduledAt = combineReminderDateTime(dateText, timeText)
+
+          return {
+            id: makeTaskId(),
+            sourceNoteId: row.id,
+            sourceText,
+            text: draft.text.trim(),
+            ...(scheduledAt ? { scheduledAt } : {}),
+            ...(dateText ? { dateText } : {}),
+            ...(timeText ? { timeText } : {}),
+            needsDateTime: !dateText || !timeText,
+            done: false,
+            createdAt,
+            updatedAt: createdAt,
+          }
+        })
+        .filter(item => item.text.length > 0)
+
+      saveReminders([...nextReminders, ...derivedItems.reminders])
+      setActivePanel(`reminders`)
+      showFeedAcknowledgement(`${nextReminders.length} added to Reminders`)
+    }
+
+    setMoveReview(null)
   }
 
   async function handleFeedRowCleanUp(
@@ -1293,10 +2252,6 @@ export function QuickCapture() {
     trackedNoteBackupHtmlRef.current = `<p></p>`
     setTrackedOriginalTranscript(null)
     setNotePresentationMode(`plain`)
-    setOutputMode(`note`)
-    setChecklistItems([])
-    setChecklistBusy(false)
-    setChecklistHighlight(false)
     resetLatestCopyState()
   }
 
@@ -1307,8 +2262,9 @@ export function QuickCapture() {
 
   // ── Selection mode ────────────────────────────────────────────────
   function enterSelectionMode() {
-    clearDeleteAckTimer()
-    setDeleteAckText(null)
+    clearFeedAckTimer()
+    setFeedAckText(null)
+    setActivePanel(`notes`)
     setIsSelectionMode(true)
     setSelectedIds(new Set())
   }
@@ -1349,11 +2305,9 @@ export function QuickCapture() {
       resetLatestCopyState()
       setNoteCapturedAt(nextLatest?.at ?? null)
       setNotePresentationMode(`plain`)
-      setOutputMode(`note`)
-      setChecklistItems([])
-      setChecklistBusy(false)
-      setChecklistHighlight(false)
     }
+    if (movePopoverRowId && selectedIds.has(movePopoverRowId)) setMovePopoverRowId(null)
+    if (moveReview && selectedIds.has(moveReview.rowId)) setMoveReview(null)
     exitSelectionMode()
     showDeleteAcknowledgement(deleteCount)
   }
@@ -1361,7 +2315,7 @@ export function QuickCapture() {
   useEffect(() => {
     return () => {
       clearLatestCopyTimer()
-      clearDeleteAckTimer()
+      clearFeedAckTimer()
     }
   }, [])
 
@@ -1481,7 +2435,11 @@ export function QuickCapture() {
                     Voice notes
                   </span>
                   <p className="qc-sheet-shortcut-hint">
-                    {`Hit ⌃Space to speak`}
+                    {isProcessingWhisper ?
+                      `Transcribing…`
+                    : isEmbeddedRecording ?
+                      `Listening · speak naturally`
+                    : `Press ⌃Space to capture`}
                   </p>
                 </div>
                 <div
@@ -1498,7 +2456,7 @@ export function QuickCapture() {
                         disabled={isEmbeddedRecording || isProcessingWhisper}
                         onClick={() => void startRecordingFromNotes()}
                       >
-                        <MicIcon size={13} />
+                        <MicIcon size={15} />
                       </button>
                     </Tip>
                   )}
@@ -1523,7 +2481,7 @@ export function QuickCapture() {
                           disabled={historyRows.length === 0}
                           onClick={enterSelectionMode}
                         >
-                          <TrashIcon size={13} />
+                          <TrashIcon size={15} />
                         </button>
                       </Tip>
                     )
@@ -1540,7 +2498,7 @@ export function QuickCapture() {
                         toggleAppearance()
                       }}
                     >
-                      {appearance === `light` ? <MoonIcon size={13} /> : <SunIcon size={13} />}
+                      {appearance === `light` ? <MoonIcon size={15} /> : <SunIcon size={15} />}
                     </button>
                   </Tip>
 
@@ -1580,358 +2538,389 @@ export function QuickCapture() {
                 }}
               >
 
-              {/* Transcript list */}
-              <div
-                ref={noteTranscriptScrollRef}
-                className={`transcript-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden${isEmbeddedRecording ? ` pb-[76px]` : ``}`}
-                style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
-              >
-                <div className="qc-feed">
-                  {/* Select-all row — only visible in selection mode */}
-                  {isSelectionMode && historyRows.length > 0 && (
-                    <div className="qc-feed-select-all-row">
-                      <label className="qc-feed-select-all-label">
-                        <div
-                          className={`qc-feed-checkbox${selectedIds.size === historyRows.length ? ` qc-feed-checkbox--checked` : ``}`}
-                          onClick={selectAll}
-                          role="checkbox"
-                          aria-checked={selectedIds.size === historyRows.length}
-                          tabIndex={0}
-                          onKeyDown={(e) => e.key === ` ` && selectAll()}
-                        >
-                          {selectedIds.size === historyRows.length && <CheckIcon size={10} />}
-                        </div>
-                        <span style={{ fontSize: `12px`, color: `var(--qc-text-muted)` }}>
-                          {selectedIds.size === historyRows.length ? `Deselect all` : `Select all`}
-                        </span>
-                      </label>
-                    </div>
-                  )}
+              <div className="qc-thought-layout">
+                {!isSelectionMode && !isEmbeddedRecording && (
+                  <DestinationRail
+                    activePanel={activePanel}
+                    noteCount={historyRows.length}
+                    taskCount={taskOpenCount}
+                    ideaCount={derivedItems.ideas.length}
+                    reminderCount={reminderOpenCount}
+                    onSelect={(panel) => {
+                      setActivePanel(panel)
+                      setMovePopoverRowId(null)
+                    }}
+                  />
+                )}
 
-                  {chronoRows.map((row, idx) => {
-                    const isLatest = idx === chronoRows.length - 1
-                    const stamp =
-                      isLatest && noteCapturedAt !== null ?
-                        liveFeedStamp || formatFeedEntryStamp(row.at)
-                      : formatFeedEntryStamp(row.at)
-
-                    const rowSideBusy = !isLatest && feedRowActionBusy === row.id
-                    const isPastCleanupActive = !isLatest && pastCleanupDraft?.rowId === row.id
-                    const activePastCleanupDraft = isPastCleanupActive ? pastCleanupDraft : null
-                    const cleanDisabledLatest =
-                      aiSuggestBusy ||
-                      isEmbeddedRecording ||
-                      isProcessingWhisper ||
-                      copyOk ||
-                      outputMode === `checklist` ||
-                      latestSilentClass
-
-                    const cleanDisabledPast =
-                      feedRowActionBusy !== null || row.silent || isProcessingWhisper ||
-                      !window.pill
-
-                    return (
-                      <div
-                        key={row.id}
-                        className={[
-                          isLatest ? `qc-feed-entry qc-feed-entry--current` : `qc-feed-entry`,
-                          isSelectionMode ? `qc-feed-entry--selectable` : ``,
-                          isSelectionMode && selectedIds.has(row.id) ? `qc-feed-entry--selected` : ``,
-                          newlyAddedRowId === row.id ? `qc-feed-entry--new` : ``,
-                        ].join(` `).trim()}
-                        onClick={isSelectionMode ? () => toggleSelectId(row.id) : undefined}
-                      >
-                        {/* Checkbox — only in selection mode */}
-                        {isSelectionMode && (
-                          <div className="qc-feed-select-col" aria-hidden>
-                            <div className={`qc-feed-checkbox${selectedIds.has(row.id) ? ` qc-feed-checkbox--checked` : ``}`}>
-                              {selectedIds.has(row.id) && <CheckIcon size={10} />}
+                <div className="qc-thought-main">
+                  {!showingDerivedPanel && (
+                    <div
+                      ref={noteTranscriptScrollRef}
+                      className="transcript-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+                      style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
+                    >
+                      <div className="qc-feed">
+                        {isEmbeddedRecording && (
+                          <div
+                            className={`qc-inline-recording-card${isProcessingWhisper ? ` qc-inline-recording-card--processing` : ``}`}
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <div className="qc-inline-recording-card__wave" aria-hidden={true}>
+                              {isProcessingWhisper ?
+                                <span className="qc-inline-recording-card__spinner" />
+                              :
+                                <>
+                                  <i /><i /><i /><i /><i /><i /><i />
+                                </>
+                              }
                             </div>
+                            <span className="qc-inline-recording-card__label">
+                              {isProcessingWhisper ? `Transcribing` : `Listening...`}
+                            </span>
+                            {!isProcessingWhisper && (
+                              <div className="qc-inline-recording-card__actions">
+                                <Tip content="Discard">
+                                  <button
+                                    type="button"
+                                    className="qc-inline-recording-card__icon-btn"
+                                    onClick={() => cancelRecording()}
+                                    aria-label="Cancel recording"
+                                  >
+                                    <XIcon size={13} />
+                                  </button>
+                                </Tip>
+                                <Tip content="Finish and transcribe">
+                                  <button
+                                    type="button"
+                                    className="qc-inline-recording-card__accept"
+                                    onClick={() => void stopRecording()}
+                                    aria-label="Accept audio and transcribe"
+                                  >
+                                    <CheckIcon size={15} />
+                                  </button>
+                                </Tip>
+                              </div>
+                            )}
                           </div>
                         )}
 
-                        <div className="qc-feed-meta">
-                          <span className="qc-feed-meta-time">{stamp}</span>
-                          {isLatest ?
-                            !isProcessingWhisper ?
-                              <div className="qc-feed-actions">
-                                <Tip content="Refine">
-                                  <button
-                                    type="button"
-                                    className="qc-feed-action"
-                                    aria-label="Refine"
-                                    disabled={cleanDisabledLatest}
-                                    onClick={(e) => void handleFeedRowCleanUp(row, true, e)}
-                                  >
-                                    {aiSuggestBusy ?
-                                      <span
-                                        aria-hidden={true}
-                                        className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid"
-                                        style={{
-                                          borderColor: `var(--qc-border-strong)`,
-                                          borderTopColor: `var(--qc-accent)`,
-                                        }}
-                                      />
-                                    : <ImproveIconOutline size={15} />}
-                                  </button>
-                                </Tip>
-                                <Tip content={copyOk ? `Copied` : `Copy`}>
-                                  <button
-                                    type="button"
-                                    className="qc-feed-action"
-                                    aria-label={copyOk ? `Copied` : `Copy`}
-                                    disabled={copyOk || isEmbeddedRecording}
-                                    onClick={(e) => handleFeedRowCopy(row, true, e)}
-                                  >
-                                    {copyOk ? <CheckIcon size={15} /> : <CopyIcon size={15} />}
-                                  </button>
-                                </Tip>
-                                {notePresentationMode === `tracked` && trackedOriginalTranscript !== null && (
-                                  <Tip content="Restore">
-                                    <button
-                                      type="button"
-                                      className="qc-feed-action qc-feed-action--revert"
-                                      aria-label="Restore"
-                                      onClick={restoreTranscript}
-                                    >
-                                      <UndoIcon size={15} />
-                                    </button>
-                                  </Tip>
+                        {isSelectionMode && historyRows.length > 0 && (
+                          <div className="qc-feed-select-all-row">
+                            <label className="qc-feed-select-all-label">
+                              <div
+                                className={`qc-feed-checkbox${selectedIds.size === historyRows.length ? ` qc-feed-checkbox--checked` : ``}`}
+                                onClick={selectAll}
+                                role="checkbox"
+                                aria-checked={selectedIds.size === historyRows.length}
+                                tabIndex={0}
+                                onKeyDown={(e) => e.key === ` ` && selectAll()}
+                              >
+                                {selectedIds.size === historyRows.length && <CheckIcon size={10} />}
+                              </div>
+                              <span style={{ fontSize: `12px`, color: `var(--qc-text-muted)` }}>
+                                {selectedIds.size === historyRows.length ? `Deselect all` : `Select all`}
+                              </span>
+                            </label>
+                          </div>
+                        )}
+
+                        {historyRows.map((row, idx) => {
+                          const isLatest = idx === 0
+                          const stamp =
+                            isLatest && noteCapturedAt !== null ?
+                              liveFeedStamp || formatFeedEntryStamp(row.at)
+                            : formatFeedEntryStamp(row.at)
+
+                          const rowSideBusy = !isLatest && feedRowActionBusy === row.id
+                          const isPastCleanupActive = !isLatest && pastCleanupDraft?.rowId === row.id
+                          const activePastCleanupDraft = isPastCleanupActive ? pastCleanupDraft : null
+                          const cleanDisabledLatest =
+                            aiSuggestBusy ||
+                            isEmbeddedRecording ||
+                            isProcessingWhisper ||
+                            copyOk ||
+                            latestSilentClass
+                          const moveDisabled =
+                            isEmbeddedRecording ||
+                            isProcessingWhisper ||
+                            moveReview?.status === `loading` ||
+                            row.silent ||
+                            !row.text.trim().length
+                          const cleanDisabledPast =
+                            feedRowActionBusy !== null || row.silent || isProcessingWhisper ||
+                            !window.pill
+                          const cleanDisabled = isLatest ? cleanDisabledLatest : cleanDisabledPast
+
+                          return (
+                            <div
+                              key={row.id}
+                              className={[
+                                isLatest ? `qc-feed-entry qc-feed-entry--current` : `qc-feed-entry`,
+                                isSelectionMode ? `qc-feed-entry--selectable` : ``,
+                                isSelectionMode && selectedIds.has(row.id) ? `qc-feed-entry--selected` : ``,
+                                newlyAddedRowId === row.id ? ` qc-feed-entry--new` : ``,
+                              ].join(` `).trim()}
+                              onClick={isSelectionMode ? () => toggleSelectId(row.id) : undefined}
+                            >
+                              {isSelectionMode && (
+                                <div className="qc-feed-select-col" aria-hidden>
+                                  <div className={`qc-feed-checkbox${selectedIds.has(row.id) ? ` qc-feed-checkbox--checked` : ``}`}>
+                                    {selectedIds.has(row.id) && <CheckIcon size={10} />}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="qc-feed-meta">
+                                <span className="qc-feed-meta-time">{stamp}</span>
+                                {!isSelectionMode && (rowSideBusy ?
+                                  <div className="qc-feed-actions-busy">
+                                    <div
+                                      className="h-4 w-4 animate-spin rounded-full border-2 border-solid"
+                                      style={{
+                                        borderColor: `var(--qc-border-strong)`,
+                                        borderTopColor: `var(--qc-accent)`,
+                                      }}
+                                    />
+                                  </div>
+                                :
+                                  <div className="qc-feed-actions qc-feed-actions--text">
+                                    {!isProcessingWhisper && (
+                                      <>
+                                        <Tip content="Refine with tracked edits">
+                                          <button
+                                            type="button"
+                                            className="qc-feed-action qc-feed-action--label"
+                                            aria-label="Refine"
+                                            disabled={cleanDisabled}
+                                            onClick={(e) => void handleFeedRowCleanUp(row, isLatest, e)}
+                                          >
+                                            {aiSuggestBusy && isLatest ?
+                                              <span
+                                                aria-hidden={true}
+                                                className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-solid"
+                                                style={{
+                                                  borderColor: `var(--qc-border-strong)`,
+                                                  borderTopColor: `var(--qc-accent)`,
+                                                }}
+                                              />
+                                            : <ImproveIconOutline size={14} />}
+                                            <span>Refine</span>
+                                          </button>
+                                        </Tip>
+                                        <Tip content="Tidy with review">
+                                          <button
+                                            type="button"
+                                            className="qc-feed-action qc-feed-action--label"
+                                            aria-label="Tidy"
+                                            disabled={cleanDisabled}
+                                            onClick={(e) => void handleFeedRowCleanUp(row, isLatest, e)}
+                                          >
+                                            <ChecklistIcon size={14} />
+                                            <span>Tidy</span>
+                                          </button>
+                                        </Tip>
+                                        <Tip content={isLatest && copyOk ? `Copied` : copiedRowId === row.id ? `Copied` : `Copy`}>
+                                          <button
+                                            type="button"
+                                            className="qc-feed-action qc-feed-action--label"
+                                            aria-label="Copy"
+                                            disabled={(isLatest && copyOk) || copiedRowId === row.id || isEmbeddedRecording}
+                                            onClick={(e) => handleFeedRowCopy(row, isLatest, e)}
+                                          >
+                                            {(isLatest && copyOk) || copiedRowId === row.id ?
+                                              <CheckIcon size={14} />
+                                            : <CopyIcon size={14} />}
+                                            <span>Copy</span>
+                                          </button>
+                                        </Tip>
+                                        <div className="qc-move-menu-wrap">
+                                          <button
+                                            type="button"
+                                            className="qc-feed-action qc-feed-action--label qc-feed-action--move"
+                                            aria-label="Move to"
+                                            disabled={moveDisabled}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setMovePopoverRowId(prev => prev === row.id ? null : row.id)
+                                            }}
+                                          >
+                                            <span>Move to...</span>
+                                            <MoreIcon size={14} />
+                                          </button>
+                                          {movePopoverRowId === row.id && (
+                                            <div className="qc-move-popover" role="menu" aria-label="Move note to">
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={(e) => void openMoveReview(row, `tasks`, e)}
+                                              >
+                                                <ChecklistIcon size={14} />
+                                                Tasks
+                                              </button>
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={(e) => void openMoveReview(row, `ideas`, e)}
+                                              >
+                                                <IdeaIcon size={14} />
+                                                Ideas
+                                              </button>
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                onClick={(e) => void openMoveReview(row, `reminders`, e)}
+                                              >
+                                                <ReminderIcon size={14} />
+                                                Reminders
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                        {isLatest && notePresentationMode === `tracked` && trackedOriginalTranscript !== null && (
+                                          <Tip content="Restore">
+                                            <button
+                                              type="button"
+                                              className="qc-feed-action qc-feed-action--revert"
+                                              aria-label="Restore"
+                                              onClick={restoreTranscript}
+                                            >
+                                              <UndoIcon size={15} />
+                                            </button>
+                                          </Tip>
+                                        )}
+                                        {!isLatest && isPastCleanupActive && (
+                                          <Tip content="Restore">
+                                            <button
+                                              type="button"
+                                              className="qc-feed-action qc-feed-action--revert"
+                                              aria-label="Restore"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                restorePastTranscript(row.id)
+                                              }}
+                                            >
+                                              <UndoIcon size={15} />
+                                            </button>
+                                          </Tip>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                 )}
                               </div>
-                            : null
-                          : rowSideBusy ?
-                            <div className="qc-feed-actions-busy">
-                              <div
-                                className="h-4 w-4 animate-spin rounded-full border-2 border-solid"
-                                style={{
-                                  borderColor: `var(--qc-border-strong)`,
-                                  borderTopColor: `var(--qc-accent)`,
-                                }}
-                              />
-                            </div>
-                          :
-                            <div className="qc-feed-actions">
-                              <Tip content="Refine">
-                                <button
-                                  type="button"
-                                  className="qc-feed-action"
-                                  aria-label="Refine"
-                                  disabled={cleanDisabledPast}
-                                  onClick={(e) => void handleFeedRowCleanUp(row, false, e)}
-                                >
-                                  <ImproveIconOutline size={15} />
-                                </button>
-                              </Tip>
-                              <Tip content={copiedRowId === row.id ? `Copied` : `Copy`}>
-                                <button
-                                  type="button"
-                                  className="qc-feed-action"
-                                  aria-label={copiedRowId === row.id ? `Copied` : `Copy`}
-                                  disabled={copiedRowId === row.id}
-                                  onClick={(e) => handleFeedRowCopy(row, false, e)}
-                                >
-                                  {copiedRowId === row.id ? <CheckIcon size={15} /> : <CopyIcon size={15} />}
-                                </button>
-                              </Tip>
-                              {isPastCleanupActive && (
-                                <Tip content="Restore">
-                                  <button
-                                    type="button"
-                                    className="qc-feed-action qc-feed-action--revert"
-                                    aria-label="Restore"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      restorePastTranscript(row.id)
-                                    }}
-                                  >
-                                    <UndoIcon size={15} />
-                                  </button>
-                                </Tip>
-                              )}
-                            </div>
-                          }
-                        </div>
 
-                        {isLatest ?
-                          <>
-                            {outputMode === `checklist` ?
-                              isEmbeddedRecording && checklistItems.length ?
-                                <div className="flex flex-col gap-0">
-                                  <div className="qc-checklist-root" style={{ opacity: 0.45 }}>
-                                    {checklistItems.map((item, i) => (
-                                      <label key={i} className="qc-checklist-item" style={{ animationDelay: `0ms` }}>
-                                        <input
-                                          type="checkbox"
-                                          checked={item.checked}
-                                          className="qc-checklist-checkbox"
-                                          readOnly
-                                        />
-                                        <span
-                                          className="qc-checklist-label"
-                                          style={{
-                                            textDecoration: item.checked ? `line-through` : `none`,
-                                            color: item.checked ? `var(--qc-text-muted)` : `var(--qc-text-primary)`,
-                                          }}
-                                        >
-                                          {item.text}
-                                        </span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                  <div className="flex items-center gap-2 py-3">
-                                    <div style={{ flex: 1, height: 1, background: `var(--qc-border)` }} />
-                                    <span className="text-[11px] shrink-0" style={{ color: `var(--qc-text-muted)` }}>
-                                      Adding more…
-                                    </span>
-                                    <div style={{ flex: 1, height: 1, background: `var(--qc-border)` }} />
-                                  </div>
-                                  {liveText ?
-                                    <FeedClampText
-                                      text={liveText}
-                                      className={`qc-feed-current-text select-text whitespace-pre-wrap`}
-                                      style={{ color: `var(--qc-text-muted)` }}
+                              {isLatest ?
+                                <>
+                                  {notePresentationMode === `tracked` ?
+                                    <div
+                                      ref={trackedNoteEditorRef}
+                                      key={`tracked-${trackedNoteSession}`}
+                                      role="textbox"
+                                      aria-multiline={true}
+                                      aria-label="Edited note"
+                                      spellCheck={true}
+                                      className="qc-tracked-note-root"
+                                      contentEditable={true}
+                                      suppressContentEditableWarning={true}
+                                      onPointerDownCapture={e => {
+                                        const edited = acceptTrackedAdditionAtPointer(e.currentTarget, e.target)
+                                        if (edited) {
+                                          e.preventDefault()
+                                          trackedNoteBackupHtmlRef.current = e.currentTarget.innerHTML
+                                          resetLatestCopyState()
+                                        }
+                                      }}
+                                      onInput={e => {
+                                        trackedNoteBackupHtmlRef.current = e.currentTarget.innerHTML
+                                        resetLatestCopyState()
+                                      }}
                                     />
                                   :
-                                    <div className="qc-dictation-typing" aria-hidden={true}>
-                                      <span /><span /><span />
+                                    isEmbeddedRecording ?
+                                      <FeedClampText
+                                        text={finalText || row.text}
+                                        className="qc-feed-current-text select-text whitespace-pre-wrap"
+                                      />
+                                    :
+                                      <PastEntryText
+                                        row={{ id: row.id, text: displayText, silent: row.silent }}
+                                        textClassName="qc-feed-current-text select-text"
+                                        editableClassName="qc-feed-current-text qc-feed-past-editable select-text"
+                                        onSave={(newText) => {
+                                          updateCaptureHistoryById(row.id, newText)
+                                          setHistoryRows(loadCaptureHistory())
+                                          setFinalText(newText)
+                                          resetLatestCopyState()
+                                        }}
+                                      />
+                                  }
+
+                                  {aiSuggestBanner && !isEmbeddedRecording &&
+                                    <div role="status" className="qc-ai-banner mt-2 px-3 py-2 leading-[1.2]">
+                                      {aiSuggestBanner}
                                     </div>
                                   }
-                                </div>
-                              :
-                                <div className="flex flex-col gap-0">
-                                  <div className="pb-3">
-                                    <FeedClampText
-                                      text={finalText}
-                                      className="qc-feed-past-text qc-feed-body-text select-text whitespace-pre-wrap"
-                                      style={{ color: `var(--qc-text-muted)` }}
-                                    />
-                                  </div>
-                                  <div style={{ height: 1, background: `var(--qc-border)`, marginBottom: 12 }} />
-                                  <div className="qc-checklist-root">
-                                    {checklistBusy ?
-                                      <div className="flex items-center gap-2" style={{ color: `var(--qc-text-muted)` }}>
-                                        <div
-                                          className="h-4 w-4 animate-spin rounded-full border-2 border-solid"
-                                          style={{
-                                            borderColor: `var(--qc-border-strong)`,
-                                            borderTopColor: `var(--qc-accent)`,
-                                          }}
-                                        />
-                                        <span className="text-sm">Formatting tasks…</span>
-                                      </div>
-                                    : checklistItems.map((item, i) => (
-                                      <label
-                                        key={i}
-                                        className="qc-checklist-item"
-                                        style={{ animationDelay: `${i * 90}ms` } as CSSProperties}
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={item.checked}
-                                          className="qc-checklist-checkbox"
-                                          onChange={() =>
-                                            setChecklistItems(prev =>
-                                              prev.map((it, idx) =>
-                                                idx === i ? { ...it, checked: !it.checked } : it
-                                              )
-                                            )
-                                          }
-                                        />
-                                        <span
-                                          className={`qc-checklist-label${
-                                            checklistHighlight && !item.checked ? ` qc-checklist-label--highlight` : ``
-                                          }`}
-                                          style={{
-                                            textDecoration: item.checked ? `line-through` : `none`,
-                                            color: item.checked ? `var(--qc-text-muted)` : undefined,
-                                            animationDelay: `${i * 90}ms`,
-                                          }}
-                                        >
-                                          {item.text}
-                                        </span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                </div>
-                            : notePresentationMode === `tracked` ?
-                              <div
-                                ref={trackedNoteEditorRef}
-                                key={`tracked-${trackedNoteSession}`}
-                                role="textbox"
-                                aria-multiline={true}
-                                aria-label="Edited note"
-                                spellCheck={true}
-                                className="qc-tracked-note-root"
-                                contentEditable={true}
-                                suppressContentEditableWarning={true}
-                                onPointerDownCapture={e => {
-                                  const edited = acceptTrackedAdditionAtPointer(e.currentTarget, e.target)
-                                  if (edited) {
-                                    e.preventDefault()
-                                    trackedNoteBackupHtmlRef.current = e.currentTarget.innerHTML
-                                    resetLatestCopyState()
-                                  }
-                                }}
-                                onInput={e => {
-                                  trackedNoteBackupHtmlRef.current = e.currentTarget.innerHTML
-                                  resetLatestCopyState()
-                                }}
-                              />
-                            :
-                              isEmbeddedRecording ?
-                                /* When recording, show prior text stable — live block appears below */
-                                <FeedClampText
-                                  text={finalText || row.text}
-                                  className="qc-feed-current-text select-text whitespace-pre-wrap"
-                                />
+                                </>
                               :
                                 <PastEntryText
-                                  row={{ id: row.id, text: displayText, silent: row.silent }}
-                                  textClassName="qc-feed-current-text select-text"
-                                  editableClassName="qc-feed-current-text qc-feed-past-editable select-text"
+                                  key={row.id}
+                                  row={row}
+                                  cleanupHtml={activePastCleanupDraft?.html}
+                                  cleanupSession={activePastCleanupDraft?.session}
+                                  onCleanupHtmlChange={(html) => {
+                                    setPastCleanupDraft(prev =>
+                                      prev?.rowId === row.id ? { ...prev, html } : prev,
+                                    )
+                                  }}
                                   onSave={(newText) => {
                                     updateCaptureHistoryById(row.id, newText)
                                     setHistoryRows(loadCaptureHistory())
-                                    setFinalText(newText)
-                                    resetLatestCopyState()
                                   }}
                                 />
-                            }
+                              }
+                            </div>
+                          )
+                        })}
 
-                            {aiSuggestBanner && !isEmbeddedRecording &&
-                              <div role="status" className="qc-ai-banner mt-2 px-3 py-2 leading-[1.2]">
-                                {aiSuggestBanner}
-                              </div>
-                            }
-                          </>
-                        :
-                          <>
-                            <PastEntryText
-                              key={row.id}
-                              row={row}
-                              cleanupHtml={activePastCleanupDraft?.html}
-                              cleanupSession={activePastCleanupDraft?.session}
-                              onCleanupHtmlChange={(html) => {
-                                setPastCleanupDraft(prev =>
-                                  prev?.rowId === row.id ? { ...prev, html } : prev,
-                                )
-                              }}
-                              onSave={(newText) => {
-                                updateCaptureHistoryById(row.id, newText)
-                                setHistoryRows(loadCaptureHistory())
-                              }}
-                            />
-                          </>
-                        }
+                        {historyRows.length === 0 && !isProcessingWhisper && !isEmbeddedRecording && (
+                          <p className="px-3 py-6 text-sm italic" style={{ color: `var(--qc-text-muted)` }}>
+                            No captures yet.
+                          </p>
+                        )}
                       </div>
-                    )
-                  })}
+                    </div>
+                  )}
 
-                  {historyRows.length === 0 && !isProcessingWhisper && !isEmbeddedRecording && (
-                    <p className="px-3 py-6 text-sm italic" style={{ color: `var(--qc-text-muted)` }}>
-                      No captures yet.
-                    </p>
+                  {activePanel === `tasks` && showingDerivedPanel && (
+                    <TaskManagerPanel
+                      tasks={derivedItems.tasks}
+                      addText={taskAddText}
+                      onAddTextChange={setTaskAddText}
+                      onAddTask={addManualTask}
+                      onCopy={() => void copyTasks()}
+                      onToggle={toggleTask}
+                      onEdit={editTask}
+                      onRemove={removeTask}
+                    />
+                  )}
+
+                  {activePanel === `ideas` && showingDerivedPanel && (
+                    <IdeasPanel
+                      ideas={derivedItems.ideas}
+                      onEdit={editIdea}
+                      onRemove={removeIdea}
+                    />
+                  )}
+
+                  {activePanel === `reminders` && showingDerivedPanel && (
+                    <RemindersPanel
+                      reminders={derivedItems.reminders}
+                      onToggle={toggleReminder}
+                      onEdit={editReminder}
+                      onRemove={removeReminder}
+                    />
                   )}
                 </div>
               </div>
@@ -1954,73 +2943,20 @@ export function QuickCapture() {
                 </div>
               )}
 
-              {deleteAckText && !isSelectionMode && (
+              {feedAckText && !isSelectionMode && (
                 <div
-                  className="qc-feed-delete-ack"
+                  className="qc-feed-ack"
                   role="status"
                   aria-live="polite"
                   style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
                 >
                   <CheckIcon size={13} />
-                  <span>{deleteAckText}</span>
+                  <span>{feedAckText}</span>
                 </div>
               )}
 
-              {isEmbeddedRecording && !isSelectionMode && (
-                <div
-                  className="qc-notes-mic-cta qc-notes-mic-cta--expanded"
-                  role="presentation"
-                  style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
-                >
-                  {isProcessingWhisper ? (
-                    <div className="qc-notes-mic-cta__bar qc-notes-mic-cta__bar--processing">
-                      <div className="qc-notes-mic-cta__bar-dots" aria-hidden={true}>
-                        <div className="qc-dictation-typing">
-                          <span /><span /><span />
-                        </div>
-                      </div>
-                      <div className="qc-notes-mic-cta__bar-center">
-                        <span
-                          className="qc-notes-mic-cta__transcribing-label"
-                          role="status"
-                          aria-live="polite"
-                        >
-                          Transcribing
-                        </span>
-                      </div>
-                    </div>
-                  ) :
-                    (
-                      <div className="qc-notes-mic-cta__bar">
-                        <span className="qc-listening-label" aria-live="polite">Listening</span>
-                        <div className="qc-notes-mic-cta__bar-actions">
-                          <Tip content="Discard">
-                            <button
-                              type="button"
-                              className="qc-notes-mic-cta__icon-btn"
-                              onClick={() => cancelRecording()}
-                              aria-label="Cancel recording"
-                            >
-                              <XIcon size={13} />
-                            </button>
-                          </Tip>
-                          <div className="qc-notes-mic-cta__wave" aria-hidden={true}>
-                            <span /><span /><span /><span /><span /><span /><span />
-                          </div>
-                          <Tip content="Finish and transcribe">
-                            <button
-                              type="button"
-                              className="qc-notes-mic-cta__icon-btn"
-                              onClick={() => void stopRecording()}
-                              aria-label="Accept audio and transcribe"
-                            >
-                              <CheckIcon size={15} />
-                            </button>
-                          </Tip>
-                        </div>
-                      </div>
-                    )}
-                </div>
+              {!isEmbeddedRecording && !isSelectionMode && (
+                <div className="qc-resize-affordance" aria-hidden={true} />
               )}
 
               </div>{/* end white content panel */}
@@ -2028,6 +2964,17 @@ export function QuickCapture() {
           </div>
         )}
       </section>
+
+      {moveReview && (
+        <MoveReviewModal
+          state={moveReview}
+          row={activeMoveReviewRow}
+          onClose={() => setMoveReview(null)}
+          onAccept={acceptMoveReview}
+          onToggleDraft={toggleMoveDraft}
+          onUpdateDraft={updateMoveDraft}
+        />
+      )}
 
 
       {/* Error toast */}

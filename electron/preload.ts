@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-import type { SuggestEditsAiResult, TranscriptionResult } from './shared.js'
+import type {
+  ExtractDestinationPayload,
+  ExtractDestinationResult,
+  SuggestEditsAiResult,
+  TranscriptionResult,
+} from './shared.js'
 
 export type ResizePayload = { width: number; height: number }
 
@@ -10,8 +15,10 @@ export type PillApi = {
   hide: () => Promise<unknown | null>
   minimize: () => Promise<unknown | null>
   onSummon: (cb: () => void) => () => void
+  onToggle: (cb: () => void) => () => void
   transcribeBlob: (args: { data: string; mime: string }) => Promise<TranscriptionResult>
   suggestEdits: (payload: { text: string }) => Promise<SuggestEditsAiResult>
+  extractDestination: (payload: ExtractDestinationPayload) => Promise<ExtractDestinationResult>
   formatChecklist: (transcript: string) => Promise<{ items: { text: string; checked: boolean }[] }>
   copyText: (text: string) => Promise<boolean>
   quit: () => Promise<unknown | null>
@@ -44,6 +51,8 @@ const pillApi: PillApi = {
   transcribeBlob: ({ data, mime }) => ipcRenderer.invoke('openai:transcribe', { mime, data }),
 
   suggestEdits: (payload) => ipcRenderer.invoke('openai:suggest-edits', payload),
+
+  extractDestination: (payload) => ipcRenderer.invoke('openai:extract-destination', payload),
 
   formatChecklist: (transcript: string) => ipcRenderer.invoke('openai:format-checklist', transcript),
 

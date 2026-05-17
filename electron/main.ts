@@ -8,6 +8,9 @@ import OpenAI from 'openai'
 
 import type {
   ChecklistPayload,
+  ExtractDestinationMode,
+  ExtractDestinationPayload,
+  ExtractDestinationResult,
   SuggestEditsAiResult,
   SuggestReplacement,
   TranscriptionResult,
@@ -372,14 +375,14 @@ async function suggestEditsViaOpenAi(raw: string): Promise<SuggestEditsAiResult>
       messages: [
         {
           role: `system`,
-          content: `You clean up voice-to-text transcriptions into clear, readable written text.
+          content: `You conservatively correct voice-to-text transcription mistakes.
 Respond ONLY JSON: {"cleanedText":"<full improved transcript>","replacements":[{"old":"<exact verbatim substring from input>","new":"<improved text>"}], "summary":""}.
 Rules:
 - Each "old" MUST match the input EXACTLY (verbatim, including spaces) and appear ONLY ONCE.
-- Aggressively fix speech-to-text artefacts: remove filler words (um, uh, like, you know, actually, so, right, basically), fix run-on sentences, add punctuation, fix capitalization, improve word choice.
-- Rewrite awkward phrasing into natural written English while keeping the original meaning and facts.
-- Fix grammar errors and repetition.
-- Prefer replacing larger spans when multiple issues cluster together — fewer, bigger replacements are better than many tiny ones.
+- Preserve the speaker's wording, meaning, tone, language, and facts.
+- Only fix punctuation, capitalization, obvious speech-to-text homophones, duplicated words, and clear grammar/transcription errors.
+- Do NOT rewrite for style, improve word choice, summarize, translate, add details, remove profanity, or make the speaker sound more polished.
+- Prefer small replacements. Replace larger spans only when the original text is clearly a transcription error.
 - If nothing needs changing, emit {"cleanedText":"<original input>","replacements":[],"summary":"Already clear."}.
 - Cap at 24 replacements.`,
         },
@@ -451,14 +454,14 @@ async function formatChecklistViaOpenAi(raw: string): Promise<ChecklistPayload> 
     items: fallbackChunks
       .map((line) => line.trim())
       .filter(Boolean)
-      .slice(0, 24)
+      .slice(0, 50)
       .map((text) => ({ text, checked: false })),
   }
 
   const trimmed = raw.trim()
-  if (!trimmed.length) return { items: [{ text: 'Nothing captured yet', checked: false }] }
+  if (!trimmed.length) return { items: [] }
 
-  if (!openaiApiKey) return fallback.items.length ? fallback : { items: [{ text: trimmed, checked: false }] }
+  if (!openaiApiKey) return fallback
 
   try {
     const client = new OpenAI({ apiKey: openaiApiKey })
@@ -470,11 +473,15 @@ async function formatChecklistViaOpenAi(raw: string): Promise<ChecklistPayload> 
       messages: [
         {
           role: 'system',
-          content: `You convert sloppy speech transcripts into crisp checklist JSON.
+          content: `You extract actionable tasks from voice transcripts.
 Respond ONLY JSON: {"items":[{"text":"<imperative line>","checked":false}]} 
 Rules:
-- Strip filler phrases; verbs first.
-- 1–14 lines when possible.`,
+- Preserve the transcript language. Do not translate.
+- Extract only explicit or strongly implied actionable items.
+- Do not turn general thoughts, observations, questions, or narration into tasks.
+- Keep task text short and useful, but do not invent missing details.
+- Return {"items":[]} when there are no actionable tasks.
+- Return at most 50 tasks.`,
         },
         {
           role: 'user',
@@ -498,11 +505,174 @@ Rules:
         checked: false,
       }))
       .filter((item) => item.text.length > 0)
+      .slice(0, 50)
 
-    if (!items.length) return fallback
+    if (!items.length) return { items: [] }
     return { items }
   } catch (e) {
     console.warn('[quick-capture] GPT formatting failed:', e)
+    return fallback
+  }
+}
+
+function fallbackDestination(mode: ExtractDestinationMode, raw: string): ExtractDestinationResult {
+  const trimmed = raw.trim()
+  if (!trimmed.length) return { ok: false, code: 'EMPTY_TEXT', message: 'Nothing to move.' }
+
+  if (mode === 'tasks') {
+    const tasks = trimmed
+      .split(/[\r\n.;]+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 50)
+      .map((text) => ({ text }))
+
+    return { ok: true, mode, tasks: tasks.length ? tasks : [{ text: trimmed }] }
+  }
+
+  if (mode === 'ideas') {
+    return { ok: true, mode, ideas: [{ text: trimmed }] }
+  }
+
+  return {
+    ok: true,
+    mode,
+    reminders: [{ text: trimmed, needsDateTime: true }],
+  }
+}
+
+function destinationPrompt(mode: ExtractDestinationMode) {
+  if (mode === 'tasks') {
+    return `Extract actionable tasks from a voice transcript.
+Respond ONLY JSON: {"tasks":[{"text":"<short task>"}],"summary":""}
+Rules:
+- Preserve the transcript language. Do not translate.
+- Extract only explicit or strongly implied actionable items.
+- Do not turn general thoughts, observations, questions, or narration into tasks.
+- Keep task text short and useful, but do not invent missing details.
+- Return {"tasks":[]} when there are no actionable tasks.
+- Return at most 50 tasks.`
+  }
+
+  if (mode === 'ideas') {
+    return `Extract ideas from a voice transcript.
+Respond ONLY JSON: {"ideas":[{"title":"<optional short title>","text":"<idea>"}],"summary":""}
+Rules:
+- Preserve the transcript language, sentiment, and personal voice.
+- Lightly tidy grammar and punctuation only when it improves readability.
+- Do not transform the idea into marketing copy, a task, or a summary.
+- Split distinct ideas only when the transcript clearly contains more than one.
+- Return {"ideas":[]} when no idea is present.
+- Return at most 20 ideas.`
+  }
+
+  return `Extract reminder candidates from a voice transcript.
+Respond ONLY JSON: {"reminders":[{"text":"<reminder>","dateText":"<YYYY-MM-DD if known>","timeText":"<HH:mm if known>","scheduledAt":"<ISO if fully known>","needsDateTime":true}],"summary":""}
+Rules:
+- Preserve the transcript language. Do not translate.
+- Extract only explicit or strongly implied reminders/follow-ups.
+- Use the provided current date/time context to resolve relative dates when clear.
+- If date or time is missing or ambiguous, leave missing fields blank and set needsDateTime true.
+- Do not invent dates, times, or details.
+- Return {"reminders":[]} when no reminder is present.
+- Return at most 20 reminders.`
+}
+
+async function extractDestinationViaOpenAi(
+  payload: ExtractDestinationPayload,
+): Promise<ExtractDestinationResult> {
+  const mode = payload.mode
+  const trimmed = `${payload.text ?? ''}`.trim()
+
+  if (!trimmed.length) return { ok: false, code: 'EMPTY_TEXT', message: 'Nothing to move.' }
+  if (mode !== 'tasks' && mode !== 'ideas' && mode !== 'reminders')
+    return { ok: false, code: 'BAD_RESPONSE', message: 'Unsupported destination.' }
+
+  const fallback = fallbackDestination(mode, trimmed)
+  if (!openaiApiKey) return fallback
+
+  try {
+    const client = new OpenAI({ apiKey: openaiApiKey })
+
+    const response = await client.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature: mode === 'ideas' ? 0.25 : 0.15,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: destinationPrompt(mode),
+        },
+        {
+          role: 'user',
+          content: `Current date/time: ${payload.nowIso || new Date().toISOString()}\n\nTranscript:\n${trimmed}`,
+        },
+      ],
+    })
+
+    const message = response.choices.at(0)?.message?.content
+    if (!message) return fallback
+
+    const parsed = JSON.parse(message) as Record<string, unknown>
+    const summary = typeof parsed.summary === 'string' && parsed.summary.trim().length ?
+      parsed.summary.trim()
+    : undefined
+
+    if (mode === 'tasks') {
+      const rawTasks = Array.isArray(parsed.tasks) ? parsed.tasks : []
+      const tasks = rawTasks
+        .filter((entry): entry is { text?: string } => !!entry && typeof entry === 'object')
+        .map(entry => ({ text: `${entry.text ?? ''}`.trim() }))
+        .filter(item => item.text.length)
+        .slice(0, 50)
+
+      return { ok: true, mode, tasks, ...(summary ? { summary } : {}) }
+    }
+
+    if (mode === 'ideas') {
+      const rawIdeas = Array.isArray(parsed.ideas) ? parsed.ideas : []
+      const ideas = rawIdeas
+        .filter((entry): entry is { title?: string; text?: string } => !!entry && typeof entry === 'object')
+        .map(entry => {
+          const title = `${entry.title ?? ''}`.trim()
+          return {
+            ...(title ? { title } : {}),
+            text: `${entry.text ?? ''}`.trim(),
+          }
+        })
+        .filter(item => item.text.length)
+        .slice(0, 20)
+
+      return { ok: true, mode, ideas, ...(summary ? { summary } : {}) }
+    }
+
+    const rawReminders = Array.isArray(parsed.reminders) ? parsed.reminders : []
+    const reminders = rawReminders
+      .filter((entry): entry is {
+        text?: string
+        scheduledAt?: string
+        dateText?: string
+        timeText?: string
+        needsDateTime?: boolean
+      } => !!entry && typeof entry === 'object')
+      .map(entry => {
+        const scheduledAt = `${entry.scheduledAt ?? ''}`.trim()
+        const dateText = `${entry.dateText ?? ''}`.trim()
+        const timeText = `${entry.timeText ?? ''}`.trim()
+        return {
+          text: `${entry.text ?? ''}`.trim(),
+          ...(scheduledAt ? { scheduledAt } : {}),
+          ...(dateText ? { dateText } : {}),
+          ...(timeText ? { timeText } : {}),
+          needsDateTime: Boolean(entry.needsDateTime) || !scheduledAt,
+        }
+      })
+      .filter(item => item.text.length)
+      .slice(0, 20)
+
+    return { ok: true, mode, reminders, ...(summary ? { summary } : {}) }
+  } catch (e) {
+    console.warn('[quick-capture] destination extraction failed:', e)
     return fallback
   }
 }
@@ -540,6 +710,12 @@ function attachIpcOnce() {
   ipcMain.handle(
     'openai:format-checklist',
     async (_evt, transcript: string): Promise<ChecklistPayload> => formatChecklistViaOpenAi(transcript ?? ''),
+  )
+
+  ipcMain.handle(
+    'openai:extract-destination',
+    async (_evt, payload: ExtractDestinationPayload): Promise<ExtractDestinationResult> =>
+      extractDestinationViaOpenAi(payload),
   )
 
   ipcMain.handle(

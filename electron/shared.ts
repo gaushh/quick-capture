@@ -7,6 +7,42 @@ export type ChecklistPayload = {
   items: ChecklistItem[]
 }
 
+export type ExtractDestinationMode = 'tasks' | 'ideas' | 'reminders'
+
+export type ExtractTaskDraft = {
+  text: string
+}
+
+export type ExtractIdeaDraft = {
+  title?: string
+  text: string
+}
+
+export type ExtractReminderDraft = {
+  text: string
+  scheduledAt?: string
+  dateText?: string
+  timeText?: string
+  needsDateTime?: boolean
+}
+
+export type ExtractDestinationPayload = {
+  mode: ExtractDestinationMode
+  text: string
+  nowIso?: string
+}
+
+export type ExtractDestinationResult =
+  | {
+      ok: true
+      mode: ExtractDestinationMode
+      tasks?: ExtractTaskDraft[]
+      ideas?: ExtractIdeaDraft[]
+      reminders?: ExtractReminderDraft[]
+      summary?: string
+    }
+  | { ok: false; code: 'EMPTY_TEXT' | 'BAD_RESPONSE'; message?: string }
+
 /** Hosted transcription (Electron main IPC). Renderer must handle `.ok`. */
 export type TranscriptionResult =
   | { ok: true; text: string }
