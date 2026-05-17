@@ -569,6 +569,26 @@
     color: var(--qc-icon-active);
   }
 
+  /* Header mic CTA: softly emphasized without overpowering window chrome */
+  .qc-chrome-icon-btn--mic-cta {
+    color: var(--qc-accent);
+    background: color-mix(in srgb, var(--qc-accent) 11%, var(--qc-bg-surface));
+    border-radius: 8px;
+    box-shadow:
+      0 1px 2px rgba(9, 12, 20, 0.08),
+      0 0 0 1px color-mix(in srgb, var(--qc-accent) 20%, transparent);
+  }
+
+  .qc-chrome-icon-btn--mic-cta:hover:not(:disabled) {
+    color: var(--qc-accent);
+    background: color-mix(in srgb, var(--qc-accent) 16%, var(--qc-bg-surface));
+  }
+
+  .qc-chrome-icon-btn--mic-cta:disabled {
+    color: var(--qc-accent);
+    opacity: 0.72;
+  }
+
   /* Mic icon during recording */
   .qc-chrome-icon-btn--recording {
     color: var(--qc-accent);
@@ -1556,6 +1576,10 @@
 
   /* ── Tooltip ─────────────────────────────────────────────────── */
 
+  .qc-tip-anchor {
+    display: contents;
+  }
+
   .qc-tooltip {
     font-family: var(--font-ui);
     font-size: 11px;
@@ -1600,6 +1624,20 @@
     align-items: center;
     justify-content: center;
     min-width: 0;
+  }
+
+  .qc-notes-mic-cta__transcribing-label {
+    flex: 0 1 auto;
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--qc-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   .qc-notes-mic-cta__bar-actions {
@@ -1814,6 +1852,40 @@
   .qc-feed-select-bar__delete:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .qc-feed-delete-ack {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    z-index: 14;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 24px);
+    padding: 8px 12px;
+    border: 1px solid var(--qc-border-strong);
+    border-radius: var(--qc-radius-md);
+    background: var(--qc-bg-surface);
+    color: var(--qc-text-secondary);
+    box-shadow: 0 2px 12px rgba(9, 12, 20, 0.1);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    transform: translateX(-50%);
+    pointer-events: none;
+    animation: qc-live-fadein 160ms ease;
+  }
+
+  .qc-feed-delete-ack svg {
+    flex: 0 0 auto;
+    color: var(--qc-accent);
+  }
+
+  .qc-feed-delete-ack span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .qc-feed-copy-btn {

@@ -1,5 +1,4 @@
 import {
-  cloneElement,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -261,41 +260,53 @@ function TooltipEl({ content, anchorRect }: { content: string; anchorRect: DOMRe
 /** Lightweight styled tooltip — wraps a single child element, renders via portal so overflow:hidden never clips it. */
 function Tip({ content, children }: { content: string; children: ReactElement }) {
   const [rect, setRect] = useState<DOMRect | null>(null)
+  const anchorRef = useRef<HTMLSpanElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const child = cloneElement(children, {
-    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-      const captured = e.currentTarget.getBoundingClientRect()
+  const handleMouseEnter = () => {
+    const anchor = anchorRef.current?.firstElementChild
+    if (anchor instanceof HTMLElement) {
+      const captured = anchor.getBoundingClientRect()
       timerRef.current = setTimeout(() => setRect(captured), 1000)
-      ;(children.props as { onMouseEnter?: (e: React.MouseEvent) => void }).onMouseEnter?.(e)
-    },
-    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
-      if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null }
-      setRect(null)
-      ;(children.props as { onMouseLeave?: (e: React.MouseEvent) => void }).onMouseLeave?.(e)
-    },
-  })
+    }
+  }
+
+  const handleMouseLeave = () => {
+    if (timerRef.current !== null) { clearTimeout(timerRef.current); timerRef.current = null }
+    setRect(null)
+  }
 
   return (
     <>
-      {child}
+      <span
+        ref={anchorRef}
+        className="qc-tip-anchor"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {children}
+      </span>
       {rect && createPortal(<TooltipEl content={content} anchorRect={rect} />, document.body)}
     </>
   )
 }
 
 /**
- * Past-entry text: collapsed = 3-line clamp with `…` (click to expand accordion-style),
+ * Feed-entry text: collapsed = 3-line clamp with `…` (click to expand accordion-style),
  * expanded = full text as contentEditable. Saves on blur.
  */
 function PastEntryText({
   row,
+  textClassName = `qc-feed-past-text qc-feed-body-text`,
+  editableClassName = `qc-feed-past-text qc-feed-body-text qc-feed-past-editable`,
   cleanupHtml,
   cleanupSession,
   onCleanupHtmlChange,
   onSave,
 }: {
   row: { id: string; text: string; silent: boolean }
+  textClassName?: string
+  editableClassName?: string
   cleanupHtml?: string
   cleanupSession?: number
   onCleanupHtmlChange?: (html: string) => void
@@ -372,7 +383,7 @@ function PastEntryText({
         <Tip content="Click to edit">
           <p
             ref={measureRef}
-            className="qc-feed-past-text qc-feed-body-text whitespace-pre-wrap qc-feed-line-clamp-3"
+            className={`${textClassName} whitespace-pre-wrap qc-feed-line-clamp-3`}
             style={{ cursor: `pointer` }}
             onClick={(e) => { e.stopPropagation(); setExpanded(true) }}
           >
@@ -392,7 +403,7 @@ function PastEntryText({
             contentEditable={!row.silent}
             suppressContentEditableWarning={true}
             spellCheck={true}
-            className="qc-feed-past-text qc-feed-body-text qc-feed-past-editable whitespace-pre-wrap"
+            className={`${editableClassName} whitespace-pre-wrap`}
             onBlur={handleBlur}
             onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
               if (e.key === `Escape`) { e.preventDefault(); e.currentTarget.blur(); setExpanded(false) }
@@ -480,6 +491,7 @@ export function QuickCapture() {
   const audioCtxRef = useRef<AudioContext | null>(null)
   const audioRafRef = useRef<number | null>(null)
   const latestCopyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const deleteAckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [appearance, setAppearance] = useState<QcAppearance>(() => getStoredAppearance())
   const phaseRef = useRef<PhaseKind>('idle')
   const transcriptionGenRef = useRef(0)
@@ -510,6 +522,7 @@ export function QuickCapture() {
   const [feedRowActionBusy, setFeedRowActionBusy] = useState<string | null>(null)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleteAckText, setDeleteAckText] = useState<string | null>(null)
   /** Idle pill: hover expands to reveal dictation (second row). */
 
   const trackedNoteEditorRef = useRef<HTMLDivElement | null>(null)
@@ -680,6 +693,22 @@ export function QuickCapture() {
     }
   }
 
+  function clearDeleteAckTimer() {
+    if (deleteAckTimerRef.current !== null) {
+      clearTimeout(deleteAckTimerRef.current)
+      deleteAckTimerRef.current = null
+    }
+  }
+
+  function showDeleteAcknowledgement(count: number) {
+    clearDeleteAckTimer()
+    setDeleteAckText(count === 1 ? `Deleted 1 note` : `Deleted ${count} notes`)
+    deleteAckTimerRef.current = setTimeout(() => {
+      deleteAckTimerRef.current = null
+      setDeleteAckText(null)
+    }, 1800)
+  }
+
   function resetLatestCopyState() {
     clearLatestCopyTimer()
     setCopyOk(false)
@@ -723,6 +752,8 @@ export function QuickCapture() {
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
     setPastCleanupDraft(null)
+    clearDeleteAckTimer()
+    setDeleteAckText(null)
     setOutputMode(`note`)
     setChecklistItems([])
     setChecklistBusy(false)
@@ -747,6 +778,8 @@ export function QuickCapture() {
     setNotePresentationMode(`plain`)
     setTrackedOriginalTranscript(null)
     setPastCleanupDraft(null)
+    clearDeleteAckTimer()
+    setDeleteAckText(null)
     setOutputMode(`note`)
     setChecklistItems([])
     setChecklistBusy(false)
@@ -1035,6 +1068,8 @@ export function QuickCapture() {
     setChecklistHighlight(false)
     setIsSelectionMode(false)
     setSelectedIds(new Set())
+    clearDeleteAckTimer()
+    setDeleteAckText(null)
     setPhase('idle')
   }
 
@@ -1272,6 +1307,8 @@ export function QuickCapture() {
 
   // ── Selection mode ────────────────────────────────────────────────
   function enterSelectionMode() {
+    clearDeleteAckTimer()
+    setDeleteAckText(null)
     setIsSelectionMode(true)
     setSelectedIds(new Set())
   }
@@ -1299,24 +1336,32 @@ export function QuickCapture() {
 
   function deleteSelected() {
     if (selectedIds.size === 0) return
+    const deleteCount = selectedIds.size
     const remaining = historyRows.filter(r => !selectedIds.has(r.id))
     saveCaptureHistory(remaining)
     setHistoryRows(remaining)
     if (pastCleanupDraft && selectedIds.has(pastCleanupDraft.rowId)) setPastCleanupDraft(null)
     // If the currently-displayed latest note was deleted, clear it
     if (historyRows[0] && selectedIds.has(historyRows[0].id)) {
-      setFinalText(``)
+      const nextLatest = remaining[0] ?? null
+      setFinalText(nextLatest?.text ?? ``)
       setTrackedOriginalTranscript(null)
       resetLatestCopyState()
-      setNoteCapturedAt(null)
-      if (remaining.length === 0) setPhase(`idle`)
+      setNoteCapturedAt(nextLatest?.at ?? null)
+      setNotePresentationMode(`plain`)
+      setOutputMode(`note`)
+      setChecklistItems([])
+      setChecklistBusy(false)
+      setChecklistHighlight(false)
     }
     exitSelectionMode()
+    showDeleteAcknowledgement(deleteCount)
   }
 
   useEffect(() => {
     return () => {
       clearLatestCopyTimer()
+      clearDeleteAckTimer()
     }
   }, [])
 
@@ -1445,11 +1490,10 @@ export function QuickCapture() {
                 >
                   {/* Mic CTA — always visible in header, active state when recording */}
                   {!isSelectionMode && (
-                    <Tip content="Hit ⌃Space">
+                    <Tip content="Start recording">
                       <button
                         type="button"
-                        className={`qc-chrome-icon-btn${isEmbeddedRecording ? ` qc-chrome-icon-btn--active` : ``}`}
-                        style={{ color: `var(--qc-accent)` }}
+                        className={`qc-chrome-icon-btn qc-chrome-icon-btn--mic-cta${isEmbeddedRecording ? ` qc-chrome-icon-btn--active` : ``}`}
                         aria-label="Start dictation"
                         disabled={isEmbeddedRecording || isProcessingWhisper}
                         onClick={() => void startRecordingFromNotes()}
@@ -1835,11 +1879,24 @@ export function QuickCapture() {
                                 }}
                               />
                             :
-                              /* When recording, show prior text stable — live block appears below */
-                              <FeedClampText
-                                text={isEmbeddedRecording ? (finalText || row.text) : displayText}
-                                className="qc-feed-current-text select-text whitespace-pre-wrap"
-                              />
+                              isEmbeddedRecording ?
+                                /* When recording, show prior text stable — live block appears below */
+                                <FeedClampText
+                                  text={finalText || row.text}
+                                  className="qc-feed-current-text select-text whitespace-pre-wrap"
+                                />
+                              :
+                                <PastEntryText
+                                  row={{ id: row.id, text: displayText, silent: row.silent }}
+                                  textClassName="qc-feed-current-text select-text"
+                                  editableClassName="qc-feed-current-text qc-feed-past-editable select-text"
+                                  onSave={(newText) => {
+                                    updateCaptureHistoryById(row.id, newText)
+                                    setHistoryRows(loadCaptureHistory())
+                                    setFinalText(newText)
+                                    resetLatestCopyState()
+                                  }}
+                                />
                             }
 
                             {aiSuggestBanner && !isEmbeddedRecording &&
@@ -1897,6 +1954,18 @@ export function QuickCapture() {
                 </div>
               )}
 
+              {deleteAckText && !isSelectionMode && (
+                <div
+                  className="qc-feed-delete-ack"
+                  role="status"
+                  aria-live="polite"
+                  style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
+                >
+                  <CheckIcon size={13} />
+                  <span>{deleteAckText}</span>
+                </div>
+              )}
+
               {isEmbeddedRecording && !isSelectionMode && (
                 <div
                   className="qc-notes-mic-cta qc-notes-mic-cta--expanded"
@@ -1911,15 +1980,13 @@ export function QuickCapture() {
                         </div>
                       </div>
                       <div className="qc-notes-mic-cta__bar-center">
-                        <div
-                          className="qc-notes-mic-cta__spinner h-3.5 w-3.5 shrink-0 rounded-full border-[1.5px] border-solid animate-spin"
+                        <span
+                          className="qc-notes-mic-cta__transcribing-label"
                           role="status"
-                          aria-label="Processing"
-                          style={{
-                            borderColor: `var(--qc-border-strong)`,
-                            borderTopColor: `var(--qc-accent)`,
-                          }}
-                        />
+                          aria-live="polite"
+                        >
+                          Transcribing
+                        </span>
                       </div>
                     </div>
                   ) :
