@@ -357,6 +357,18 @@ function NotesIcon({ size = 17 }: { size?: number }) {
   )
 }
 
+function MicIcon({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden={true}>
+      <path d="M12 15a4 4 0 004-4V7a4 4 0 10-8 0v4a4 4 0 004 4z" />
+      <path d="M19 11a7 7 0 01-14 0" />
+      <path d="M12 19v2" />
+      <path d="M10 21h4" />
+    </svg>
+  )
+}
+
 function CopyIcon({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -1371,12 +1383,7 @@ export function QuickCapture() {
               aria-label="Start dictation"
               title="Start dictation  ⌃Space"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 15a4 4 0 004-4V7a4 4 0 10-8 0v4a4 4 0 004 4z" />
-                <path d="M19 11a7 7 0 01-14 0" />
-                <path d="M12 19v2" /><path d="M10 21h4" />
-              </svg>
+              <MicIcon size={14} />
             </button>
           </div>
         )}
@@ -1409,6 +1416,18 @@ export function QuickCapture() {
                   className="flex shrink-0 items-center gap-1 [-webkit-app-region:no-drag]"
                   role="presentation"
                 >
+                  {!isEmbeddedRecording && !isSelectionMode && (
+                    <button
+                      type="button"
+                      className="qc-chrome-icon-btn qc-chrome-record-btn"
+                      aria-label="Start dictation"
+                      title="Start dictation  ⌃Space"
+                      onClick={() => void startRecordingFromNotes()}
+                    >
+                      <MicIcon size={14} />
+                    </button>
+                  )}
+
                   {/* Delete / selection mode toggle */}
                   {!isEmbeddedRecording && (
                     isSelectionMode ? (
@@ -1858,32 +1877,13 @@ export function QuickCapture() {
                 </div>
               )}
 
-              {(phase === `output` || isEmbeddedRecording) && !isSelectionMode && (
+              {isEmbeddedRecording && !isSelectionMode && (
                 <div
-                  className={
-                    isEmbeddedRecording ?
-                      `qc-notes-mic-cta qc-notes-mic-cta--expanded`
-                    : `qc-notes-mic-cta`
-                  }
+                  className="qc-notes-mic-cta qc-notes-mic-cta--expanded"
                   role="presentation"
                   style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
                 >
-                  {!isEmbeddedRecording ? (
-                    <button
-                      type="button"
-                      className="qc-notes-mic-cta__fab"
-                      onClick={() => void startRecordingFromNotes()}
-                      aria-label="Start dictation"
-                      title="Start dictation  ⌃Space"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden={true}>
-                        <path d="M12 15a4 4 0 004-4V7a4 4 0 10-8 0v4a4 4 0 004 4z" />
-                        <path d="M19 11a7 7 0 01-14 0" />
-                        <path d="M12 19v2" /><path d="M10 21h4" />
-                      </svg>
-                    </button>
-                  ) : isProcessingWhisper ? (
+                  {isProcessingWhisper ? (
                     <div className="qc-notes-mic-cta__bar qc-notes-mic-cta__bar--processing">
                       <div className="qc-notes-mic-cta__bar-dots" aria-hidden={true}>
                         <div className="qc-dictation-typing">
