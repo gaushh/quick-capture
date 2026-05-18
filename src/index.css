@@ -2647,14 +2647,8 @@
     transition: background 120ms ease;
   }
 
-  .qc-task-text:hover {
-    background: var(--qc-bg-hover);
-  }
-
   .qc-task-text:focus {
-    background: var(--qc-bg-hover);
-    outline: 1px solid var(--qc-accent);
-    outline-offset: 1px;
+    outline: none;
   }
 
   .qc-task-row--done .qc-task-text {
