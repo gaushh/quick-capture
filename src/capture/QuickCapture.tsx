@@ -3124,7 +3124,7 @@ export function QuickCapture() {
                     className="qc-scratchpad-header-title truncate text-[17px] font-semibold tracking-tight"
                     style={{ color: `var(--qc-text-primary)` }}
                   >
-                    Voice notes
+                    Quick Capture
                   </span>
                   <p className="qc-sheet-shortcut-hint">
                     {isProcessingWhisper ?
