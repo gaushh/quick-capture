@@ -1,6 +1,97 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) and other AI assistants (Cursor, Copilot, etc.) when working with code in this repository.
+
+---
+
+## For AI Assistants: First-Time Setup Playbook
+
+If a user has just opened this repo and wants to run the app for the first time, walk them through these steps. Do not assume any prior setup. The user may be non-technical.
+
+### Step 0 — Detect the platform
+
+This app is a Mac desktop application (Electron). Confirm the user is on macOS before continuing.
+
+```bash
+uname -s   # should print "Darwin"
+```
+
+If they're on Linux or Windows, the app still builds but UI was designed for macOS. Hotkey/window-positioning may need adjustment.
+
+### Step 1 — Verify Node.js is installed
+
+```bash
+node -v
+npm -v
+```
+
+If `node` is missing or older than v20, direct the user to https://nodejs.org and have them install the LTS version. They should re-open their terminal afterward, and you should re-check `node -v`.
+
+### Step 2 — Confirm `.env` has an OpenAI API key
+
+The app requires `OPENAI_API_KEY` to transcribe audio and run AI features.
+
+```bash
+test -f .env && grep -c "^OPENAI_API_KEY=." .env || echo "missing"
+```
+
+- If output is `1` → key is present, continue.
+- If output is `0` or `missing` → tell the user to copy `.env.example` to `.env` and paste their OpenAI key:
+  ```bash
+  cp .env.example .env
+  # Then edit .env and set OPENAI_API_KEY=sk-...
+  ```
+- Direct them to https://platform.openai.com/api-keys if they don't have a key.
+
+### Step 3 — Install dependencies
+
+```bash
+npm install
+```
+
+This takes 1–2 minutes. Peer-dependency warnings are normal — ignore them.
+
+### Step 4 — Handle the macOS Gatekeeper quirk (one-time)
+
+After `npm install`, some native binaries inside `node_modules` may be quarantined by macOS. If `npm run dev` fails with "unidentified developer" or "damaged" errors, run:
+
+```bash
+xattr -dr com.apple.quarantine node_modules/electron node_modules/@rolldown node_modules/fsevents node_modules/lightningcss-darwin-arm64 node_modules/@tailwindcss/oxide-darwin-arm64 node_modules/iconv-corefoundation 2>/dev/null || true
+```
+
+### Step 5 — Launch the app
+
+```bash
+npm run dev
+```
+
+A small pill window will appear in the bottom-right of the user's screen. Tell them:
+
+- Press `Control + Space` anywhere to start recording.
+- Press `Control + Space` again (or click the checkmark) to stop.
+- The first recording triggers a microphone permission prompt — they must click **Allow**.
+- The left sidebar switches between Notes / Tasks / Ideas / Reminders.
+
+To quit: press `Ctrl + C` in the terminal that's running `npm run dev`.
+
+### Step 6 — Verify it's working
+
+Ask the user to:
+1. Confirm they see the pill in the bottom-right corner.
+2. Press `Control + Space`, say something, press it again.
+3. Confirm the transcript appears in the Notes panel.
+
+If any step fails, see the **Troubleshooting** section near the bottom of this file.
+
+### Optional — Build a distributable
+
+If the user wants a packaged `.app` or `.dmg`:
+
+```bash
+npm run electron:dist:mac
+```
+
+Output lands in `release/`. The DMG is unsigned, so recipients will need to run `xattr -cr` on the installed `.app` before launching.
 
 ---
 
@@ -129,3 +220,29 @@ The `TaskStatusPicker` popover portals to `document.body` with `position: fixed`
 | `WHISPER_MODEL` | `whisper-1` | Transcription model |
 | `OPENAI_CHECKLIST_MODEL` | `gpt-4o-mini` | Checklist formatting |
 | `OPENAI_EDIT_MODEL` | `gpt-4o` | Suggest edits / extract destination |
+
+---
+
+## Troubleshooting
+
+**App quits immediately or window doesn't appear**
+- Check that the pill window is at the bottom-right of the *primary* display. On multi-monitor setups it anchors to the primary screen.
+- Look for errors in the terminal running `npm run dev`. A common one is `OPENAI_API_KEY missing` — check `.env`.
+
+**`npm install` fails on native modules**
+- Usually a Node version mismatch. Confirm `node -v` is ≥ 20. If using an old version, install LTS from https://nodejs.org and retry.
+- On Apple Silicon, ensure no Rosetta interference: `arch -arm64 npm install`.
+
+**"cannot be opened because Apple cannot check it for malicious software"**
+- Affects packaged DMGs. Strip the quarantine attribute: `xattr -cr "/Applications/Quick Capture.app"`.
+
+**Microphone not recording**
+- macOS: *System Settings → Privacy & Security → Microphone* → enable for Terminal (in dev mode) or for the packaged app.
+
+**Hotkey not working**
+- Another app may own `Control + Space`. Check *System Settings → Keyboard → Keyboard Shortcuts* for conflicts (Spotlight on older macOS uses this combo).
+
+**Whisper / GPT calls failing**
+- Verify `OPENAI_API_KEY` is set: `grep "^OPENAI_API_KEY=." .env`.
+- Verify the key isn't revoked at https://platform.openai.com/api-keys.
+- Check the terminal log of `npm run dev` for the actual error message from the OpenAI API.

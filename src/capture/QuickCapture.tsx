@@ -12,12 +12,12 @@ import {
 import { createPortal } from 'react-dom'
 
 import {
+  AlertCircle,
   Bell,
-  Calendar,
   Check,
-  Clock,
   Copy,
   FileText,
+  Info,
   Inbox,
   Lightbulb,
   ListChecks,
@@ -25,7 +25,6 @@ import {
   Minus,
   FolderInput,
   Moon,
-  MoreHorizontal,
   Sparkles,
   Sun,
   Trash2,
@@ -641,7 +640,6 @@ type TaskManagerPanelProps = {
   addText: string
   onAddTextChange: (value: string) => void
   onAddTask: () => void
-  onCopy: () => void
   onSetStatus: (taskId: string, status: TaskStatus) => void
   onEdit: (taskId: string, text: string) => void
   onRemove: (taskId: string) => void
@@ -652,7 +650,6 @@ function TaskManagerPanel({
   addText,
   onAddTextChange,
   onAddTask,
-  onCopy,
   onSetStatus,
   onEdit,
   onRemove,
@@ -753,13 +750,13 @@ type IdeasPanelProps = {
 }
 
 function IdeasPanel({ ideas, onEdit, onRemove }: IdeasPanelProps) {
-  const [selectedTag, setSelectedTag] = useState<ExtractIdeaTag | null>(null)
+  const [selectedTag, setSelectedTag] = useState<IdeaTag | null>(null)
 
   const filteredIdeas = selectedTag ? ideas.filter(idea => idea.tag === selectedTag) : ideas
   const tagCounts = IDEA_TAGS.reduce((acc, tag) => {
     acc[tag] = ideas.filter(idea => idea.tag === tag).length
     return acc
-  }, {} as Record<ExtractIdeaTag, number>)
+  }, {} as Record<IdeaTag, number>)
 
   return (
     <section className="qc-derived-panel" aria-label="Ideas">
@@ -869,9 +866,8 @@ const REMINDER_GROUP_LABEL: Record<ReminderGroup, string> = {
   'no-date': `No Date Set`,
 }
 
-function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPanelProps) {
+function RemindersPanel({ reminders, onToggle: _onToggle, onEdit, onRemove }: RemindersPanelProps) {
   const [selectedReminderGroup, setSelectedReminderGroup] = useState<ReminderGroup | null>(null)
-  const openReminders = reminders.filter(reminder => !reminder.done).length
 
   const groupCounts = REMINDER_GROUP_ORDER.reduce((acc, group) => {
     acc[group] = reminders.filter(r => getReminderGroup(r) === group).length
@@ -1501,14 +1497,6 @@ function ReminderIcon({ size = 15 }: { size?: number }) {
   return <Bell size={size} strokeWidth={SW} />
 }
 
-function CalendarIcon({ size = 15 }: { size?: number }) {
-  return <Calendar size={size} strokeWidth={SW} />
-}
-
-function ClockIcon({ size = 15 }: { size?: number }) {
-  return <Clock size={size} strokeWidth={SW} />
-}
-
 function MoreIcon({ size = 15 }: { size?: number }) {
   return <FolderInput size={size} strokeWidth={SW} />
 }
@@ -1563,7 +1551,6 @@ export function QuickCapture() {
   const [historyRows, setHistoryRows] = useState<CaptureHistoryRow[]>(() => loadCaptureHistory())
   const [derivedItems, setDerivedItems] = useState<CaptureDerivedItems>(() => loadCaptureDerivedItems())
   const [activePanel, setActivePanel] = useState<ActivePanel>(`notes`)
-  const [selectedMoveDestination, setSelectedMoveDestination] = useState<MoveDestination | null>(null)
   const [taskAddText, setTaskAddText] = useState(``)
   const [liveText, setLiveText] = useState('')
   const [finalText, setFinalText] = useState('')
@@ -2649,19 +2636,6 @@ export function QuickCapture() {
     saveReminders(derivedItems.reminders.filter(item => item.id !== reminderId))
   }
 
-  async function copyTasks() {
-    const lines = derivedItems.tasks.map(item => `${item.checked ? `☑` : `☐`} ${item.text}`)
-
-    if (!lines.length) return
-
-    try {
-      await writeClipboardText(lines.join(`\n`))
-      showFeedAcknowledgement(`Tasks copied`, 'success')
-    } catch {
-      //
-    }
-  }
-
   function toggleMoveDraft(draftId: string, selected: boolean) {
     setMoveReview(prev => prev ? {
       ...prev,
@@ -2860,54 +2834,6 @@ export function QuickCapture() {
     }
   }
 
-  async function handleFeedRowTidy(
-    row: CaptureHistoryRow,
-    isLatest: boolean,
-    evt?: MouseEvent,
-  ) {
-    evt?.stopPropagation()
-    if (isProcessingWhisper) return
-
-    const pillBridge = window.pill
-    if (!pillBridge) return
-
-    const trimmed = isLatest ? getNotePlainSnapshot() : row.text.trim()
-    if (!trimmed.length || row.silent) return
-
-    setFeedRowActionBusy(row.id)
-    try {
-      const outcome = await pillBridge.suggestEdits({ text: trimmed })
-      if (!outcome.ok) {
-        revealAiBanner(outcome.message ?? `Tidy failed (${outcome.code}).`)
-        return
-      }
-
-      const polished = `${outcome.cleanedText ?? ``}`.trim()
-      if (!polished.length || polished === trimmed) {
-        showFeedAcknowledgement(`Already tidy — no changes needed.`, 'warning')
-        return
-      }
-
-      // Apply silently: no diff view, just replace text directly
-      if (isLatest) {
-        setFinalText(polished)
-        setNotePresentationMode(`plain`)
-        setTrackedOriginalTranscript(null)
-        resetLatestCopyState()
-        if (noteCapturedAt !== null) updateCaptureHistoryById(row.id, polished)
-      } else {
-        updateCaptureHistoryById(row.id, polished)
-        setPastCleanupDraft(null)
-      }
-      setHistoryRows(loadCaptureHistory())
-      showFeedAcknowledgement(`Tidied`, 'success')
-    } catch {
-      revealAiBanner(`Tidy failed — check connectivity and quotas.`)
-    } finally {
-      setFeedRowActionBusy(null)
-    }
-  }
-
   function handleFeedRowCopy(row: CaptureHistoryRow, isLatest: boolean, evt: MouseEvent) {
     evt.stopPropagation()
     if (isLatest) {
@@ -3039,13 +2965,6 @@ export function QuickCapture() {
       window.removeEventListener('keydown', onKey)
     }
   }, [])
-
-  // Calculate destination counts for "All notes" filters
-  const destinationCounts = {
-    tasks: historyRows.filter(row => row.movedTo === 'tasks').length,
-    ideas: historyRows.filter(row => row.movedTo === 'ideas').length,
-    reminders: historyRows.filter(row => row.movedTo === 'reminders').length,
-  }
 
   // All Notes shows all rows without filtering
   const filteredHistoryRows = historyRows
@@ -3649,7 +3568,6 @@ export function QuickCapture() {
                       addText={taskAddText}
                       onAddTextChange={setTaskAddText}
                       onAddTask={addManualTask}
-                      onCopy={() => void copyTasks()}
                       onSetStatus={setTaskStatus}
                       onEdit={editTask}
                       onRemove={removeTask}
@@ -3702,8 +3620,8 @@ export function QuickCapture() {
                 >
                   {feedAckType === 'success' && <CheckIcon size={13} />}
                   {feedAckType === 'danger' && <XIcon size={13} />}
-                  {feedAckType === 'warning' && <AlertCircleIcon size={13} />}
-                  {feedAckType === 'info' && <InfoIcon size={13} />}
+                  {feedAckType === 'warning' && <AlertCircle size={13} />}
+                  {feedAckType === 'info' && <Info size={13} />}
                   <span>{feedAckText}</span>
                 </div>
               )}
