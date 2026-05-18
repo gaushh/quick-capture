@@ -3225,12 +3225,23 @@ export function QuickCapture() {
                         </div>
                       </div>
 
-                      <div className="qc-task-filter-pills">
+                      <div
+                        className="qc-task-filter-pills"
+                        onClick={(e) => {
+                          const btn = (e.target as HTMLElement).closest('button')
+                          if (!btn) return
+                          const pill = btn.getAttribute('data-pill')
+                          if (pill === 'all') setSelectedMoveDestination(null)
+                          else if (pill === 'tasks') setSelectedMoveDestination(selectedMoveDestination === 'tasks' ? null : 'tasks')
+                          else if (pill === 'ideas') setSelectedMoveDestination(selectedMoveDestination === 'ideas' ? null : 'ideas')
+                          else if (pill === 'reminders') setSelectedMoveDestination(selectedMoveDestination === 'reminders' ? null : 'reminders')
+                        }}
+                      >
                         <button
                           key="all"
                           type="button"
                           className={`qc-status-pill${selectedMoveDestination === null ? ` qc-status-pill--selected` : ``}`}
-                          onClick={() => setSelectedMoveDestination(null)}
+                          data-pill="all"
                           aria-pressed={selectedMoveDestination === null}
                         >
                           All <span className="qc-pill-count">({historyRows.length})</span>
@@ -3239,7 +3250,7 @@ export function QuickCapture() {
                           key="tasks"
                           type="button"
                           className={`qc-status-pill${selectedMoveDestination === 'tasks' ? ` qc-status-pill--selected` : ``}`}
-                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'tasks' ? null : 'tasks')}
+                          data-pill="tasks"
                           aria-pressed={selectedMoveDestination === 'tasks'}
                         >
                           Tasks <span className="qc-pill-count">({destinationCounts.tasks})</span>
@@ -3248,7 +3259,7 @@ export function QuickCapture() {
                           key="ideas"
                           type="button"
                           className={`qc-status-pill${selectedMoveDestination === 'ideas' ? ` qc-status-pill--selected` : ``}`}
-                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'ideas' ? null : 'ideas')}
+                          data-pill="ideas"
                           aria-pressed={selectedMoveDestination === 'ideas'}
                         >
                           Ideas <span className="qc-pill-count">({destinationCounts.ideas})</span>
@@ -3257,7 +3268,7 @@ export function QuickCapture() {
                           key="reminders"
                           type="button"
                           className={`qc-status-pill${selectedMoveDestination === 'reminders' ? ` qc-status-pill--selected` : ``}`}
-                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'reminders' ? null : 'reminders')}
+                          data-pill="reminders"
                           aria-pressed={selectedMoveDestination === 'reminders'}
                         >
                           Reminders <span className="qc-pill-count">({destinationCounts.reminders})</span>
