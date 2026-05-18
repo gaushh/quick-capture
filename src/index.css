@@ -249,11 +249,11 @@
   }
 
   .qc-idle-split-btn:first-child {
-    border-radius: 999px 0 0 999px;
+    border-radius: 0;
   }
 
   .qc-idle-split-btn:last-child {
-    border-radius: 0 999px 999px 0;
+    border-radius: 0;
   }
 
   .qc-idle-split-btn:hover {
