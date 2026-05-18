@@ -2287,9 +2287,13 @@
 
   .qc-derived-panel__title {
     color: var(--qc-text-primary);
-    font-size: 11px;
+    font-size: var(--qc-text-sm);
     font-weight: var(--qc-fw-semibold);
     line-height: 1.5;
+  }
+
+  .qc-derived-panel__title--small {
+    font-size: 11px;
   }
 
   .qc-derived-panel__subtitle {
