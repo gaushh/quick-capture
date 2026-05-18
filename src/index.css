@@ -2944,7 +2944,7 @@
     flex-direction: column;
     overflow: hidden;
     border: 1px solid var(--qc-border-strong);
-    border-radius: var(--qc-radius-lg);
+    border-radius: var(--qc-radius-md);
     background: var(--qc-bg-surface);
     box-shadow: 0 22px 60px rgba(9, 12, 20, 0.2);
     animation: qc-modal-in 160ms var(--qc-ease);
