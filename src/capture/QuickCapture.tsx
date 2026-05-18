@@ -426,8 +426,6 @@ function PastEntryText({
   cleanupSession,
   onCleanupHtmlChange,
   onSave: _onSave,
-  searchQuery = '',
-  highlightText,
 }: {
   row: { id: string; text: string; silent: boolean }
   textClassName?: string
@@ -436,8 +434,6 @@ function PastEntryText({
   cleanupSession?: number
   onCleanupHtmlChange?: (html: string) => void
   onSave: (newText: string) => void
-  searchQuery?: string
-  highlightText?: (text: string, query: string) => (string | JSX.Element)[]
 }) {
   const cleanupRef = useRef<HTMLDivElement>(null)
 
@@ -479,7 +475,7 @@ function PastEntryText({
   return (
     <div className="qc-feed-truncate-slot">
       <p className={`${textClassName} whitespace-pre-wrap`}>
-        {searchQuery && highlightText ? highlightText(row.text, searchQuery) : row.text}
+        {row.text}
       </p>
     </div>
   )
@@ -1542,7 +1538,6 @@ export function QuickCapture() {
   const [derivedItems, setDerivedItems] = useState<CaptureDerivedItems>(() => loadCaptureDerivedItems())
   const [activePanel, setActivePanel] = useState<ActivePanel>(`notes`)
   const [selectedMoveDestination, setSelectedMoveDestination] = useState<MoveDestination | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
   const [taskAddText, setTaskAddText] = useState(``)
   const [liveText, setLiveText] = useState('')
   const [finalText, setFinalText] = useState('')
@@ -3023,24 +3018,10 @@ export function QuickCapture() {
     reminders: historyRows.filter(row => row.movedTo === 'reminders').length,
   }
 
-  // Filter history rows based on search query
-  const filteredHistoryRows = searchQuery
-    ? historyRows.filter(row =>
-        row.text.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+  // Filter history rows based on selected destination
+  const filteredHistoryRows = selectedMoveDestination
+    ? historyRows.filter(row => row.movedTo === selectedMoveDestination)
     : historyRows
-
-  // Highlight matching text in search results
-  const highlightText = (text: string, query: string): (string | JSX.Element)[] => {
-    if (!query) return [text]
-
-    const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
-    return parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase()
-        ? <mark key={i}>{part}</mark>
-        : part
-    )
-  }
 
   return (
     <div
@@ -3238,27 +3219,49 @@ export function QuickCapture() {
                 <div className="qc-thought-main">
                   {!showingDerivedPanel && (
                     <>
-                      <div className="qc-derived-panel__summary qc-all-notes-summary">
-                        <div className="qc-derived-panel__title">All notes <span className="qc-pill-count">({historyRows.length})</span></div>
-                        <div className="qc-all-notes-search">
-                          <input
-                            type="text"
-                            placeholder="Search transcripts..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="qc-search-input"
-                          />
-                          {searchQuery && (
-                            <button
-                              type="button"
-                              className="qc-search-clear"
-                              onClick={() => setSearchQuery('')}
-                              aria-label="Clear search"
-                            >
-                              ✕
-                            </button>
-                          )}
+                      <div className="qc-derived-panel__summary">
+                        <div>
+                          <div className="qc-derived-panel__title">All notes <span className="qc-pill-count">({historyRows.length})</span></div>
                         </div>
+                      </div>
+
+                      <div className="qc-task-filter-pills">
+                        <button
+                          key="all"
+                          type="button"
+                          className={`qc-status-pill${selectedMoveDestination === null ? ` qc-status-pill--selected` : ``}`}
+                          onClick={() => setSelectedMoveDestination(null)}
+                          aria-pressed={selectedMoveDestination === null}
+                        >
+                          All <span className="qc-pill-count">({historyRows.length})</span>
+                        </button>
+                        <button
+                          key="tasks"
+                          type="button"
+                          className={`qc-status-pill${selectedMoveDestination === 'tasks' ? ` qc-status-pill--selected` : ``}`}
+                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'tasks' ? null : 'tasks')}
+                          aria-pressed={selectedMoveDestination === 'tasks'}
+                        >
+                          Tasks <span className="qc-pill-count">({destinationCounts.tasks})</span>
+                        </button>
+                        <button
+                          key="ideas"
+                          type="button"
+                          className={`qc-status-pill${selectedMoveDestination === 'ideas' ? ` qc-status-pill--selected` : ``}`}
+                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'ideas' ? null : 'ideas')}
+                          aria-pressed={selectedMoveDestination === 'ideas'}
+                        >
+                          Ideas <span className="qc-pill-count">({destinationCounts.ideas})</span>
+                        </button>
+                        <button
+                          key="reminders"
+                          type="button"
+                          className={`qc-status-pill${selectedMoveDestination === 'reminders' ? ` qc-status-pill--selected` : ``}`}
+                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'reminders' ? null : 'reminders')}
+                          aria-pressed={selectedMoveDestination === 'reminders'}
+                        >
+                          Reminders <span className="qc-pill-count">({destinationCounts.reminders})</span>
+                        </button>
                       </div>
 
                       <div
@@ -3624,8 +3627,6 @@ export function QuickCapture() {
                                     updateCaptureHistoryById(row.id, newText)
                                     setHistoryRows(loadCaptureHistory())
                                   }}
-                                  searchQuery={searchQuery}
-                                  highlightText={highlightText}
                                 />
                               }
                             </div>
@@ -3639,7 +3640,7 @@ export function QuickCapture() {
                         )}
                         {filteredHistoryRows.length === 0 && historyRows.length > 0 && !isProcessingWhisper && !isEmbeddedRecording && (
                           <p className="px-3 py-6 text-sm italic" style={{ color: `var(--qc-text-muted)` }}>
-                            {searchQuery ? 'No notes match your search.' : 'No notes found.'}
+                            No notes in this category.
                           </p>
                         )}
                       </div>
