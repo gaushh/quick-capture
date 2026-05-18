@@ -3532,7 +3532,7 @@
   /* ── Saved idea card (panel) ────────────────────────────────── */
 
   .qc-idea-card {
-    padding: 10px 11px;
+    padding: 10px 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
