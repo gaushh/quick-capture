@@ -3033,10 +3033,17 @@
 
   .qc-move-modal__header {
     display: flex;
+    flex-direction: column;
     flex-shrink: 0;
-    align-items: flex-start;
-    gap: 12px;
+    gap: 6px;
     padding: 14px 14px 12px;
+  }
+
+  .qc-move-modal__header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 
   .qc-move-modal__header-left {
@@ -3098,7 +3105,7 @@
 
   .qc-move-modal__header p {
     display: -webkit-box;
-    margin: 6px 0 0;
+    margin: 0;
     overflow: hidden;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;

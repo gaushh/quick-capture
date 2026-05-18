@@ -1295,18 +1295,18 @@ function MoveReviewModal({
     <div className="qc-move-modal" role="dialog" aria-modal="true" aria-label={`Move to ${destinationLabel(state.mode)}`}>
       <div className="qc-move-modal__sheet">
         <div className="qc-move-modal__header">
-          <div className="qc-move-modal__header-left">
+          <div className="qc-move-modal__header-row">
             <div className="qc-move-modal__title">Move to {destinationLabel(state.mode)}</div>
-            {state.mode !== `reminders` && <p>{row?.text ?? ``}</p>}
+            <div className="qc-move-modal__header-actions">
+              <button type="button" className="qc-move-modal__text-btn qc-move-modal__text-btn--cancel" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="button" className="qc-move-modal__text-btn qc-move-modal__text-btn--confirm" disabled={!canAccept} onClick={onAccept}>
+                Add {selectedCount || ``} {destinationLabel(state.mode)}
+              </button>
+            </div>
           </div>
-          <div className="qc-move-modal__header-actions">
-            <button type="button" className="qc-move-modal__text-btn qc-move-modal__text-btn--cancel" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="button" className="qc-move-modal__text-btn qc-move-modal__text-btn--confirm" disabled={!canAccept} onClick={onAccept}>
-              Add {selectedCount || ``} {destinationLabel(state.mode)}
-            </button>
-          </div>
+          {state.mode !== `reminders` && <p>{row?.text ?? ``}</p>}
         </div>
 
         <div className="qc-move-modal__body">
