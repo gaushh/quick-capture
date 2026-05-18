@@ -3239,29 +3239,28 @@ export function QuickCapture() {
                   {!showingDerivedPanel && (
                     <>
                       <div className="qc-derived-panel__summary">
-                        <div>
+                        <div className="qc-all-notes-header">
                           <div className="qc-derived-panel__title">All notes <span className="qc-pill-count">({historyRows.length})</span></div>
+                          <div className="qc-all-notes-search">
+                            <input
+                              type="text"
+                              placeholder="Search transcripts..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="qc-search-input"
+                            />
+                            {searchQuery && (
+                              <button
+                                type="button"
+                                className="qc-search-clear"
+                                onClick={() => setSearchQuery('')}
+                                aria-label="Clear search"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="qc-all-notes-search">
-                        <input
-                          type="text"
-                          placeholder="Search transcripts..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="qc-search-input"
-                        />
-                        {searchQuery && (
-                          <button
-                            type="button"
-                            className="qc-search-clear"
-                            onClick={() => setSearchQuery('')}
-                            aria-label="Clear search"
-                          >
-                            ✕
-                          </button>
-                        )}
                       </div>
 
                       <div

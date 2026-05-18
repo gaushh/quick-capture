@@ -2789,22 +2789,34 @@
     color: var(--qc-text-primary);
   }
 
-  /* ── All Notes search ────────────────────────────────────── */
+  /* ── All Notes header with search ────────────────────────────────────── */
+
+  .qc-all-notes-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .qc-all-notes-header .qc-derived-panel__title {
+    flex-shrink: 0;
+  }
 
   .qc-all-notes-search {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 12px 8px;
+    gap: 6px;
+    flex: 1;
+    max-width: 300px;
   }
 
   .qc-search-input {
     flex: 1;
-    height: 22px;
+    height: 24px;
     border: 1px solid var(--qc-border);
-    border-radius: 999px;
-    padding: 0 12px;
-    font-size: 11px;
+    border-radius: 6px;
+    padding: 0 10px;
+    font-size: 12px;
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
@@ -2837,6 +2849,7 @@
     transition: color 120ms ease;
     -webkit-appearance: none;
     appearance: none;
+    flex-shrink: 0;
   }
 
   .qc-search-clear:hover {
