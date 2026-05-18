@@ -2065,9 +2065,8 @@
     bottom: 0;
     width: 44px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    padding-top: 11px;
     pointer-events: none; /* parent <div> handles click */
   }
 
