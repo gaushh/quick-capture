@@ -51,9 +51,9 @@
     --qc-space-6: 48px;
 
     /* Border Radius Scale */
-    --qc-radius-sm: 16px;
-    --qc-radius-md: 24px;
-    --qc-radius-lg: 48px;
+    --qc-radius-sm: 8px;
+    --qc-radius-md: 16px;
+    --qc-radius-lg: 40px;
 
     /* Canvas · surfaces */
     --qc-bg-canvas: #FFFFFF;
