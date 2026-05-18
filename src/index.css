@@ -436,7 +436,7 @@
     align-self: center;
     font-family: inherit;
     font-size: 11.5px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     letter-spacing: 0.02em;
     line-height: 1.5;
     color: var(--qc-text-muted);
@@ -744,7 +744,7 @@
     padding: 0;
     font-family: inherit;
     font-size: 12px;
-    font-weight: 400;
+    font-weight: var(--qc-fw-regular);
     letter-spacing: 0.005em;
     line-height: 1.5;
     color: var(--qc-text-muted);
@@ -764,7 +764,7 @@
     background: transparent;
     font: inherit;
     font-size: 11.5px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     letter-spacing: 0.02em;
     line-height: 1.5;
     color: var(--qc-text-muted);
@@ -1150,7 +1150,7 @@
 
   .qc-feed-past-tracked {
     min-height: 0;
-    font-size: 14px;
+    font-size: var(--qc-text-sm);
     line-height: 1.5;
     color: var(--qc-text-primary);
   }
@@ -1168,7 +1168,7 @@
     background: var(--qc-ai-add-bg);
     border-radius: 4px;
     padding: 0 3px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     cursor: pointer;
     transition: background 120ms ease;
   }
@@ -1261,7 +1261,7 @@
 
   .qc-feed-meta-time {
     font-size: 12px;
-    font-weight: 400;
+    font-weight: var(--qc-fw-regular);
     color: var(--qc-text-muted);
     letter-spacing: 0.008em;
     min-width: 0;
@@ -1272,7 +1272,7 @@
   }
 
   .qc-feed-past-text {
-    font-size: 14px;
+    font-size: var(--qc-text-sm);
     line-height: 1.5;
     color: var(--qc-text-secondary);
     -webkit-user-select: text;
@@ -1281,8 +1281,8 @@
   }
 
   .qc-feed-body-text {
-    font-size: 14px;
-    font-weight: 400;
+    font-size: var(--qc-text-sm);
+    font-weight: var(--qc-fw-regular);
     line-height: 1.5;
     color: var(--qc-text-primary);
   }
@@ -1341,7 +1341,7 @@
     background: transparent;
     font-family: inherit;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     letter-spacing: -0.01em;
     color: var(--qc-text-secondary);
     cursor: pointer;
@@ -1495,7 +1495,7 @@
     cursor: pointer;
     font: inherit;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     text-align: left;
     -webkit-appearance: none;
     appearance: none;
@@ -1516,7 +1516,7 @@
     background: var(--qc-bg-hover);
     color: var(--qc-text-secondary);
     font-size: 11px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     font: inherit;
     line-height: 1;
     height: 22px;
@@ -1582,7 +1582,7 @@
   }
 
   .qc-feed-live-text {
-    font-size: 13px;
+    font-size: var(--qc-text-xs);
     line-height: 1.5;
     color: var(--qc-text-secondary);
   }
@@ -1654,7 +1654,7 @@
     min-width: 0;
     overflow: hidden;
     color: var(--qc-text-secondary);
-    font-size: 13px;
+    font-size: var(--qc-text-xs);
     font-weight: 560;
     line-height: 1;
     text-overflow: ellipsis;
@@ -1736,7 +1736,7 @@
     background: transparent;
     font: inherit;
     font-size: 12px;
-    font-weight: 400;
+    font-weight: var(--qc-fw-regular);
     line-height: 1.5;
     color: var(--qc-text-muted);
     cursor: pointer;
@@ -1872,7 +1872,7 @@
   .qc-tooltip {
     font-family: var(--font-ui);
     font-size: 11px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     line-height: 1;
     letter-spacing: 0.01em;
     color: var(--qc-text-primary);
@@ -1895,7 +1895,7 @@
 
   .qc-listening-label {
     font-size: 12px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     letter-spacing: 0.01em;
     color: var(--qc-text-muted);
     animation: qc-listening-pulse 1.8s ease-in-out infinite;
@@ -1921,7 +1921,7 @@
     overflow: hidden;
     color: var(--qc-text-secondary);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     line-height: 1;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1997,9 +1997,9 @@
   .qc-notes-mic-cta__wave span:nth-child(7) { height: 4px;  animation-delay: 0.54s; }
 
   .qc-feed-current-text {
-    font-size: 14px;
+    font-size: var(--qc-text-sm);
     line-height: 1.5;
-    font-weight: 400;
+    font-weight: var(--qc-fw-regular);
     color: var(--qc-text-primary);
     -webkit-user-select: text;
     user-select: text;
@@ -2124,7 +2124,7 @@
 
   .qc-feed-select-bar__count {
     font-size: 12px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     color: var(--qc-text-muted);
     -webkit-user-select: none;
     user-select: none;
@@ -2141,7 +2141,7 @@
     color: var(--recording-red);
     font: inherit;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     cursor: pointer;
     transition: background 120ms ease;
     -webkit-appearance: none;
@@ -2173,7 +2173,7 @@
     color: var(--qc-text-secondary);
     box-shadow: 0 2px 12px rgba(9, 12, 20, 0.1);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     line-height: 1;
     transform: translateX(-50%);
     pointer-events: none;
@@ -2287,16 +2287,16 @@
 
   .qc-derived-panel__title {
     color: var(--qc-text-primary);
-    font-size: 15px;
-    font-weight: 650;
-    line-height: 1.2;
+    font-size: var(--qc-text-lg);
+    font-weight: var(--qc-fw-semibold);
+    line-height: 1.5;
   }
 
   .qc-derived-panel__subtitle {
-    margin-top: 3px;
+    margin-top: 8px;
     color: var(--qc-text-muted);
-    font-size: 12px;
-    line-height: 1.3;
+    font-size: var(--qc-text-xs);
+    line-height: 1.5;
   }
 
   .qc-derived-panel__ghost-btn {
@@ -2310,9 +2310,9 @@
     color: var(--qc-text-secondary);
     cursor: pointer;
     font: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 6px 9px;
+    font-size: var(--qc-text-xs);
+    font-weight: var(--qc-fw-medium);
+    padding: 8px 16px;
     transition: background 120ms ease, color 120ms ease;
     -webkit-appearance: none;
     appearance: none;
@@ -2341,13 +2341,13 @@
   .qc-derived-panel__empty {
     padding: 24px 8px;
     color: var(--qc-text-muted);
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: var(--qc-text-xs);
+    line-height: 1.5;
   }
 
   .qc-derived-panel__empty span {
     color: var(--qc-text-secondary);
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
   }
 
   .qc-derived-panel__item,
@@ -2385,8 +2385,8 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: var(--qc-text-xs);
+    line-height: 1.5;
     outline: none;
     padding: 4px 5px;
   }
@@ -2444,8 +2444,8 @@
   }
 
   .qc-derived-panel__title-input {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--qc-text-xs);
+    font-weight: var(--qc-fw-semibold);
   }
 
   .qc-derived-panel__textarea {
@@ -2477,8 +2477,8 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: var(--qc-text-xs);
+    line-height: 1.5;
     outline: none;
     padding: 4px 5px;
     resize: none;
@@ -2620,7 +2620,7 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--qc-text-xs);
     line-height: 1.5;
     padding: 0;
     outline: none;
@@ -2698,7 +2698,7 @@
     color: var(--qc-text-secondary);
     font: inherit;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     cursor: pointer;
     -webkit-appearance: none;
     appearance: none;
@@ -2729,7 +2729,7 @@
     gap: 8px;
     padding: 12px 0 8px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: var(--qc-fw-semibold);
     color: var(--qc-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -2741,7 +2741,7 @@
     margin-right: 0;
     font-size: 11px;
     color: var(--qc-text-muted);
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     letter-spacing: 0;
     text-transform: none;
   }
@@ -2761,7 +2761,7 @@
     gap: 8px;
     padding: 12px 0 8px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: var(--qc-fw-semibold);
     color: var(--qc-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -2773,7 +2773,7 @@
     margin-right: 0;
     font-size: 11px;
     color: var(--qc-text-muted);
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     letter-spacing: 0;
     text-transform: none;
   }
@@ -2855,7 +2855,7 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--qc-text-xs);
     cursor: pointer;
     text-align: left;
     width: 100%;
@@ -2870,7 +2870,7 @@
 
   .qc-status-popover__item--active {
     background: var(--qc-bg-hover);
-    font-weight: 600;
+    font-weight: var(--qc-fw-semibold);
   }
 
   /* ── end task status system ─────────────────────────────────── */
@@ -2894,7 +2894,7 @@
     background: var(--qc-bg-surface);
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--qc-text-xs);
     outline: none;
     padding: 8px 10px;
   }
@@ -2912,8 +2912,8 @@
     color: white;
     cursor: pointer;
     font: inherit;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: var(--qc-text-xs);
+    font-weight: var(--qc-fw-medium);
     padding: 0 12px;
     -webkit-appearance: none;
     appearance: none;
@@ -2981,8 +2981,8 @@
     background: none;
     border-radius: var(--qc-radius-sm);
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: var(--qc-text-xs);
+    font-weight: var(--qc-fw-medium);
     padding: 4px 8px;
     line-height: 1;
     white-space: nowrap;
@@ -3001,7 +3001,7 @@
 
   .qc-move-modal__text-btn--confirm {
     color: var(--qc-accent);
-    font-weight: 600;
+    font-weight: var(--qc-fw-semibold);
   }
 
   .qc-move-modal__text-btn--confirm:hover {
@@ -3016,8 +3016,8 @@
   .qc-move-modal__title {
     color: var(--qc-text-primary);
     font-size: 15px;
-    font-weight: 650;
-    line-height: 1.2;
+    font-weight: var(--qc-fw-semibold);
+    line-height: 1.5;
   }
 
   .qc-move-modal__header p {
@@ -3049,7 +3049,7 @@
     gap: 8px;
     padding: 18px 6px;
     color: var(--qc-text-muted);
-    font-size: 13px;
+    font-size: var(--qc-text-xs);
   }
 
   .qc-move-modal__task-row {
@@ -3064,7 +3064,7 @@
   }
 
   .qc-move-modal__task-row .qc-task-text {
-    font-size: 14px;
+    font-size: var(--qc-text-sm);
   }
 
   .qc-task-check--selected {
@@ -3104,8 +3104,8 @@
     background: var(--qc-bg-surface);
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: var(--qc-text-xs);
+    line-height: 1.5;
     outline: none;
     padding: 7px 8px;
   }
@@ -3138,7 +3138,7 @@
   .qc-move-modal__reminder-fields span {
     color: var(--recording-red);
     font-size: 11px;
-    line-height: 1.2;
+    line-height: 1.5;
   }
 
   /* ── Reminder quick-pick row ────────────────────────────────── */
@@ -3155,15 +3155,15 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: var(--qc-text-sm);
+    font-weight: var(--qc-fw-medium);
     padding: 4px 2px 12px;
     outline: none;
   }
 
   .qc-reminder-text::placeholder {
     color: var(--qc-text-muted);
-    font-weight: 400;
+    font-weight: var(--qc-fw-regular);
   }
 
   .qc-reminder-quick-pick {
@@ -3211,19 +3211,19 @@
 
   .qc-reminder-preset__label {
     color: var(--qc-text-primary);
-    font-size: 13px;
-    font-weight: 500;
+    font-size: var(--qc-text-xs);
+    font-weight: var(--qc-fw-medium);
   }
 
   .qc-reminder-preset--selected .qc-reminder-preset__label {
     color: var(--qc-accent);
-    font-weight: 600;
+    font-weight: var(--qc-fw-semibold);
   }
 
   .qc-reminder-preset__date {
     color: var(--qc-text-muted);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     letter-spacing: 0.02em;
     white-space: nowrap;
     flex-shrink: 0;
@@ -3309,8 +3309,8 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--qc-text-sm);
+    font-weight: var(--qc-fw-semibold);
     letter-spacing: -0.005em;
     line-height: 1.35;
     padding: 0;
@@ -3319,7 +3319,7 @@
 
   .qc-idea-row__title::placeholder {
     color: var(--qc-text-muted);
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
   }
 
   .qc-idea-row__text,
@@ -3330,7 +3330,7 @@
     background: transparent;
     color: var(--qc-text-secondary);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--qc-text-xs);
     line-height: 1.5;
     padding: 0;
     resize: none;
@@ -3362,7 +3362,7 @@
     color: var(--qc-text-secondary);
     font: inherit;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     letter-spacing: 0.01em;
     cursor: pointer;
     -webkit-appearance: none;
@@ -3444,7 +3444,7 @@
 
   .qc-pill-count {
     margin-left: 4px;
-    font-weight: 400;
+    font-weight: var(--qc-fw-regular);
     opacity: 0.8;
   }
 
@@ -3469,7 +3469,7 @@
     color: var(--qc-text-secondary);
     font: inherit;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
     cursor: pointer;
     -webkit-appearance: none;
     appearance: none;
@@ -3511,7 +3511,7 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--qc-text-xs);
     cursor: pointer;
     text-align: left;
     width: 100%;
@@ -3526,7 +3526,7 @@
 
   .qc-tag-popover__item--active {
     background: var(--qc-bg-hover);
-    font-weight: 600;
+    font-weight: var(--qc-fw-semibold);
   }
 
   /* ── Saved idea card (panel) ────────────────────────────────── */
@@ -3553,8 +3553,8 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: var(--qc-text-sm);
+    font-weight: var(--qc-fw-semibold);
     letter-spacing: -0.005em;
     line-height: 1.35;
     padding: 0;
@@ -3563,7 +3563,7 @@
 
   .qc-idea-card__title::placeholder {
     color: var(--qc-text-muted);
-    font-weight: 500;
+    font-weight: var(--qc-fw-medium);
   }
 
   .qc-feed-copy-btn {
