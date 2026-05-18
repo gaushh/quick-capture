@@ -577,7 +577,7 @@ function TaskStatusPicker({
       const spaceBelow = bounds.bottom - r.bottom
       const spaceAbove = r.top - bounds.top
       const openUp = spaceBelow < POPOVER_H + 12 && spaceAbove >= POPOVER_H + 12
-      const top = openUp ? r.top - POPOVER_H - 6 : r.bottom + 6
+      const top = openUp ? r.top - POPOVER_H - 2 : r.bottom + 2
 
       // Horizontal positioning: prefer left-align, flip to right-align if it would overflow
       const overflowsRight = r.left + POPOVER_W > bounds.right
@@ -1184,7 +1184,7 @@ function IdeaTagPicker({
       const spaceBelow = bounds.bottom - r.bottom
       const spaceAbove = r.top - bounds.top
       const openUp = spaceBelow < POPOVER_H + 12 && spaceAbove >= POPOVER_H + 12
-      const top = openUp ? r.top - POPOVER_H - 6 : r.bottom + 6
+      const top = openUp ? r.top - POPOVER_H - 2 : r.bottom + 2
 
       // Horizontal positioning: prefer left-align, flip to right-align if it would overflow
       const overflowsRight = r.left + POPOVER_W > bounds.right

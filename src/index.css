@@ -2866,7 +2866,7 @@
   }
 
   .qc-status-icon--todo {
-    border: 1.5px solid #9ca3af;
+    border: 1.5px dashed #9ca3af;
     background: transparent;
   }
 
