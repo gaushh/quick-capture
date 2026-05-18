@@ -618,7 +618,7 @@ function TaskManagerPanel({
   return (
     <section className="qc-derived-panel" aria-label="Tasks">
       <div className="qc-derived-panel__summary">
-        <div className="qc-derived-panel__title qc-derived-panel__title--small">Tasks</div>
+        <div className="qc-derived-panel__title">Tasks</div>
       </div>
 
       <div className="qc-task-filter-pills">
@@ -711,7 +711,7 @@ function IdeasPanel({ ideas, onEdit, onRemove }: IdeasPanelProps) {
   return (
     <section className="qc-derived-panel" aria-label="Ideas">
       <div className="qc-derived-panel__summary">
-        <div className="qc-derived-panel__title qc-derived-panel__title--small">Ideas</div>
+        <div className="qc-derived-panel__title">Ideas</div>
       </div>
 
       <div className="qc-ideas-filter-pills">
@@ -830,7 +830,7 @@ function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPane
   return (
     <section className="qc-derived-panel" aria-label="Reminders">
       <div className="qc-derived-panel__summary">
-        <div className="qc-derived-panel__title qc-derived-panel__title--small">Reminders</div>
+        <div className="qc-derived-panel__title">Reminders</div>
       </div>
 
       <div className="qc-reminder-filter-pills">
