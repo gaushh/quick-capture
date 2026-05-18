@@ -2432,11 +2432,7 @@
     align-items: flex-start;
     gap: 8px;
     padding: 8px;
-  }
-
-  .qc-derived-panel__item--reminder.qc-derived-panel__item--done {
-    opacity: 1;
-    background: color-mix(in srgb, var(--qc-bg-hover) 54%, transparent);
+    background: transparent !important;
   }
 
   .qc-reminder-item-main {
@@ -2465,21 +2461,16 @@
   .qc-reminder-item-meta {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
     margin-top: 2px;
   }
 
-  .qc-reminder-input-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-  }
-
-  .qc-reminder-input-icon {
+  .qc-reminder-meta-icon {
     color: var(--qc-text-muted);
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
   }
 
   .qc-reminder-input-date,

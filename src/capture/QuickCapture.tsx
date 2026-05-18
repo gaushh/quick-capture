@@ -793,30 +793,30 @@ function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPane
               />
               {reminder.sourceText && <p className="qc-derived-panel__source">{reminder.sourceText}</p>}
               <div className="qc-reminder-item-meta">
-                <label className="qc-reminder-input-wrapper">
-                  <CalendarIcon size={13} className="qc-reminder-input-icon" />
-                  <input
-                    key={`${reminder.id}-date-${reminder.dateText ?? ``}`}
-                    type="date"
-                    className="qc-reminder-input-date"
-                    defaultValue={reminder.dateText ?? ``}
-                    onBlur={e => onEdit(reminder.id, { dateText: e.currentTarget.value })}
-                    aria-label="Reminder date"
-                    title="Set date"
-                  />
-                </label>
-                <label className="qc-reminder-input-wrapper">
-                  <ClockIcon size={13} className="qc-reminder-input-icon" />
-                  <input
-                    key={`${reminder.id}-time-${reminder.timeText ?? ``}`}
-                    type="time"
-                    className="qc-reminder-input-time"
-                    defaultValue={reminder.timeText ?? ``}
-                    onBlur={e => onEdit(reminder.id, { timeText: e.currentTarget.value })}
-                    aria-label="Reminder time"
-                    title="Set time"
-                  />
-                </label>
+                <span className="qc-reminder-meta-icon">
+                  <CalendarIcon size={13} />
+                </span>
+                <input
+                  key={`${reminder.id}-date-${reminder.dateText ?? ``}`}
+                  type="date"
+                  className="qc-reminder-input-date"
+                  defaultValue={reminder.dateText ?? ``}
+                  onBlur={e => onEdit(reminder.id, { dateText: e.currentTarget.value })}
+                  aria-label="Reminder date"
+                  title="Set date"
+                />
+                <span className="qc-reminder-meta-icon">
+                  <ClockIcon size={13} />
+                </span>
+                <input
+                  key={`${reminder.id}-time-${reminder.timeText ?? ``}`}
+                  type="time"
+                  className="qc-reminder-input-time"
+                  defaultValue={reminder.timeText ?? ``}
+                  onBlur={e => onEdit(reminder.id, { timeText: e.currentTarget.value })}
+                  aria-label="Reminder time"
+                  title="Set time"
+                />
                 <button
                   type="button"
                   className="qc-derived-panel__remove"
