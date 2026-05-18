@@ -577,26 +577,10 @@ function TaskStatusPicker({
       const spaceBelow = bounds.bottom - r.bottom
       const spaceAbove = r.top - bounds.top
       const openUp = spaceBelow < POPOVER_H + 12 && spaceAbove >= POPOVER_H + 12
-      const top = openUp ? r.bottom - POPOVER_H : r.top
+      const top = openUp ? r.top - POPOVER_H - 2 : r.bottom + 2
 
-      // Horizontal positioning: prefer left-align, flip to right-align if it would overflow
-      const overflowsRight = r.left + POPOVER_W > bounds.right
-      const overflowsLeft = r.right - POPOVER_W < bounds.left
-      let left: number
-
-      if (overflowsRight && !overflowsLeft) {
-        // Flip to right-align
-        left = Math.max(bounds.left, r.right - POPOVER_W)
-      } else if (overflowsLeft && !overflowsRight) {
-        // Keep left-align (already correct)
-        left = Math.max(bounds.left, r.left)
-      } else if (overflowsRight && overflowsLeft) {
-        // Both overflow: center it within bounds
-        left = Math.max(bounds.left, Math.min(bounds.right - POPOVER_W, r.left + r.width / 2 - POPOVER_W / 2))
-      } else {
-        // Neither overflows: prefer left-align with button
-        left = r.left
-      }
+      // Horizontal positioning: always left-align with button, clamp to bounds if needed
+      const left = Math.max(bounds.left, Math.min(r.left, bounds.right - POPOVER_W))
 
       setPopoverPos({ top, left, openUp })
     }
@@ -1185,26 +1169,10 @@ function IdeaTagPicker({
       const spaceBelow = bounds.bottom - r.bottom
       const spaceAbove = r.top - bounds.top
       const openUp = spaceBelow < POPOVER_H + 12 && spaceAbove >= POPOVER_H + 12
-      const top = openUp ? r.bottom - POPOVER_H : r.top
+      const top = openUp ? r.top - POPOVER_H - 2 : r.bottom + 2
 
-      // Horizontal positioning: prefer left-align, flip to right-align if it would overflow
-      const overflowsRight = r.left + POPOVER_W > bounds.right
-      const overflowsLeft = r.right - POPOVER_W < bounds.left
-      let left: number
-
-      if (overflowsRight && !overflowsLeft) {
-        // Flip to right-align
-        left = Math.max(bounds.left, r.right - POPOVER_W)
-      } else if (overflowsLeft && !overflowsRight) {
-        // Keep left-align (already correct)
-        left = Math.max(bounds.left, r.left)
-      } else if (overflowsRight && overflowsLeft) {
-        // Both overflow: center it within bounds
-        left = Math.max(bounds.left, Math.min(bounds.right - POPOVER_W, r.left + r.width / 2 - POPOVER_W / 2))
-      } else {
-        // Neither overflows: prefer left-align with button
-        left = r.left
-      }
+      // Horizontal positioning: always left-align with button, clamp to bounds if needed
+      const left = Math.max(bounds.left, Math.min(r.left, bounds.right - POPOVER_W))
 
       setPopoverPos({ top, left, openUp })
     }
