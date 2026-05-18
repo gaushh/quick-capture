@@ -3183,17 +3183,6 @@ export function QuickCapture() {
                                             : <ImproveIconOutline size={14} />}
                                           </button>
                                         </Tip>
-                                        <Tip content="Tidy — apply fixes silently">
-                                          <button
-                                            type="button"
-                                            className="qc-feed-action qc-feed-action--label"
-                                            aria-label="Tidy"
-                                            disabled={cleanDisabled}
-                                            onClick={(e) => void handleFeedRowTidy(row, isLatest, e)}
-                                          >
-                                            <ChecklistIcon size={14} />
-                                          </button>
-                                        </Tip>
                                         <Tip content={isLatest && copyOk ? `Copied` : copiedRowId === row.id ? `Copied` : `Copy`}>
                                           <button
                                             type="button"
