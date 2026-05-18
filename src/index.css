@@ -1686,7 +1686,7 @@
   .qc-feed-line-clamp-3 {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 6;
     overflow: hidden;
     word-break: break-word;
     overflow-wrap: anywhere;
@@ -2255,7 +2255,6 @@
     justify-content: space-between;
     gap: 12px;
     padding: 14px 16px 11px;
-    border-bottom: 1px solid var(--qc-border);
   }
 
   .qc-derived-panel__title {
@@ -3413,6 +3412,53 @@
     gap: 6px;
     padding: 0 11px 8px;
     flex-wrap: wrap;
+  }
+
+  /* ── Pill count badge ────────────────────────────────────── */
+
+  .qc-pill-count {
+    margin-left: 4px;
+    font-weight: 400;
+    opacity: 0.8;
+  }
+
+  /* ── Reminder filter pills ────────────────────────────────────── */
+
+  .qc-reminder-filter-pills {
+    display: flex;
+    gap: 6px;
+    padding: 0 11px 8px;
+    flex-wrap: wrap;
+  }
+
+  .qc-reminder-group-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 9px;
+    border: 1px solid var(--qc-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--qc-text-secondary);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+
+  .qc-reminder-group-pill:hover {
+    background: var(--qc-bg-hover);
+    border-color: var(--qc-border-strong);
+  }
+
+  .qc-reminder-group-pill--selected {
+    background: var(--qc-bg-hover);
+    border-color: var(--qc-border-strong);
+    color: var(--qc-text-primary);
   }
 
   .qc-tag-popover {

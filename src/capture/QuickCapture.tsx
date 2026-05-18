@@ -618,9 +618,7 @@ function TaskManagerPanel({
   return (
     <section className="qc-derived-panel" aria-label="Tasks">
       <div className="qc-derived-panel__summary">
-        <div>
-          <div className="qc-derived-panel__title">Tasks</div>
-        </div>
+        <div className="qc-derived-panel__title">Tasks</div>
       </div>
 
       <div className="qc-task-filter-pills">
@@ -632,7 +630,7 @@ function TaskManagerPanel({
             onClick={() => setSelectedStatus(selectedStatus === status ? null : status)}
             aria-pressed={selectedStatus === status}
           >
-            {STATUS_LABEL[status]}
+            {STATUS_LABEL[status]} <span className="qc-pill-count">({status === `todo` ? todoCount : status === `in_progress` ? inProgressCount : doneCount})</span>
           </button>
         ))}
       </div>
@@ -706,16 +704,15 @@ function IdeasPanel({ ideas, onEdit, onRemove }: IdeasPanelProps) {
   const [selectedTag, setSelectedTag] = useState<ExtractIdeaTag | null>(null)
 
   const filteredIdeas = selectedTag ? ideas.filter(idea => idea.tag === selectedTag) : ideas
+  const tagCounts = IDEA_TAGS.reduce((acc, tag) => {
+    acc[tag] = ideas.filter(idea => idea.tag === tag).length
+    return acc
+  }, {} as Record<ExtractIdeaTag, number>)
 
   return (
     <section className="qc-derived-panel" aria-label="Ideas">
       <div className="qc-derived-panel__summary">
-        <div>
-          <div className="qc-derived-panel__title">Ideas</div>
-          <div className="qc-derived-panel__subtitle">
-            {ideas.length ? `${ideas.length} saved` : `Move notes here to shape ideas`}
-          </div>
-        </div>
+        <div className="qc-derived-panel__title">Ideas</div>
       </div>
 
       <div className="qc-ideas-filter-pills">
@@ -727,7 +724,7 @@ function IdeasPanel({ ideas, onEdit, onRemove }: IdeasPanelProps) {
             onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
             aria-pressed={selectedTag === tag}
           >
-            {IDEA_TAG_LABEL[tag]}
+            {IDEA_TAG_LABEL[tag]} <span className="qc-pill-count">({tagCounts[tag]})</span>
           </button>
         ))}
       </div>
@@ -812,30 +809,51 @@ const REMINDER_GROUP_LABEL: Record<ReminderGroup, string> = {
 }
 
 function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPanelProps) {
+  const [selectedReminderGroup, setSelectedReminderGroup] = useState<ReminderGroup | null>(null)
   const openReminders = reminders.filter(reminder => !reminder.done).length
+
+  const groupCounts = REMINDER_GROUP_ORDER.reduce((acc, group) => {
+    acc[group] = reminders.filter(r => getReminderGroup(r) === group).length
+    return acc
+  }, {} as Record<ReminderGroup, number>)
+
+  const filteredReminders = selectedReminderGroup
+    ? reminders.filter(r => getReminderGroup(r) === selectedReminderGroup)
+    : reminders
 
   const grouped = REMINDER_GROUP_ORDER
     .map(group => ({
       group,
-      items: reminders.filter(r => getReminderGroup(r) === group),
+      items: filteredReminders.filter(r => getReminderGroup(r) === group),
     }))
     .filter(g => g.items.length > 0)
 
   return (
     <section className="qc-derived-panel" aria-label="Reminders">
       <div className="qc-derived-panel__summary">
-        <div>
-          <div className="qc-derived-panel__title">Reminders</div>
-          <div className="qc-derived-panel__subtitle">
-            {reminders.length ? `${openReminders} open · ${reminders.length - openReminders} done` : `Move notes here to capture follow-ups`}
-          </div>
-        </div>
+        <div className="qc-derived-panel__title">Reminders</div>
+      </div>
+
+      <div className="qc-reminder-filter-pills">
+        {REMINDER_GROUP_ORDER.map(group => (
+          <button
+            key={group}
+            type="button"
+            className={`qc-reminder-group-pill${selectedReminderGroup === group ? ` qc-reminder-group-pill--selected` : ``}`}
+            onClick={() => setSelectedReminderGroup(selectedReminderGroup === group ? null : group)}
+            aria-pressed={selectedReminderGroup === group}
+          >
+            {REMINDER_GROUP_LABEL[group]} <span className="qc-pill-count">({groupCounts[group]})</span>
+          </button>
+        ))}
       </div>
 
       <div className="qc-derived-panel__list">
-        {!reminders.length && (
+        {!filteredReminders.length && (
           <div className="qc-derived-panel__empty">
-            Choose <span>Move to...</span> on a note and select Reminders.
+            {selectedReminderGroup
+              ? `No reminders in this category. ${reminders.length > 0 ? `Clear filter to see all.` : `Choose Move to... on a note and select Reminders.`}`
+              : `Choose <span>Move to...</span> on a note and select Reminders.`}
           </div>
         )}
 
