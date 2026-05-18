@@ -611,16 +611,12 @@ function TaskManagerPanel({
   return (
     <section className="qc-derived-panel" aria-label="Tasks">
       <div className="qc-derived-panel__summary">
-        <div className="min-w-0">
+        <div>
           <div className="qc-derived-panel__title">Tasks</div>
           <div className="qc-derived-panel__subtitle">
             {tasks.length ? `${openTasks} open · ${doneTasks} done` : `Move notes here to extract tasks`}
           </div>
         </div>
-        <button type="button" className="qc-derived-panel__ghost-btn" onClick={onCopy} disabled={!tasks.length}>
-          <CopyIcon size={14} />
-          Copy
-        </button>
       </div>
 
       <div className="qc-task-list">
@@ -777,51 +773,233 @@ function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPane
         )}
 
         {reminders.map(reminder => (
-          <div key={reminder.id} className="qc-derived-panel__item qc-derived-panel__item--reminder">
+          <div key={reminder.id} className={`qc-derived-panel__item qc-derived-panel__item--reminder${reminder.done ? ` qc-derived-panel__item--done` : ``}`}>
             <input
               type="checkbox"
               checked={reminder.done}
               className="qc-derived-panel__checkbox"
               onChange={e => onToggle(reminder.id, e.currentTarget.checked)}
             />
-            <input
-              key={`${reminder.id}-text-${reminder.text}`}
-              type="text"
-              className="qc-derived-panel__input"
-              defaultValue={reminder.text}
-              onBlur={e => onEdit(reminder.id, { text: e.currentTarget.value })}
-              aria-label="Reminder"
-            />
-            <button
-              type="button"
-              className="qc-derived-panel__remove"
-              onClick={() => onRemove(reminder.id)}
-              aria-label="Remove reminder"
-            >
-              <XIcon size={13} />
-            </button>
-            <div className="qc-derived-panel__datetime">
+            <div className="qc-reminder-item-main">
               <input
-                key={`${reminder.id}-date-${reminder.dateText ?? ``}`}
-                type="date"
-                defaultValue={reminder.dateText ?? ``}
-                onBlur={e => onEdit(reminder.id, { dateText: e.currentTarget.value })}
-                aria-label="Reminder date"
+                key={`${reminder.id}-text-${reminder.text}`}
+                type="text"
+                className="qc-reminder-item-text"
+                defaultValue={reminder.text}
+                onBlur={e => onEdit(reminder.id, { text: e.currentTarget.value })}
+                aria-label="Reminder"
               />
-              <input
-                key={`${reminder.id}-time-${reminder.timeText ?? ``}`}
-                type="time"
-                defaultValue={reminder.timeText ?? ``}
-                onBlur={e => onEdit(reminder.id, { timeText: e.currentTarget.value })}
-                aria-label="Reminder time"
-              />
-              {reminder.needsDateTime && <span>Needs date/time</span>}
+              {reminder.sourceText && <p className="qc-derived-panel__source">{reminder.sourceText}</p>}
+              <div className="qc-reminder-item-meta">
+                <input
+                  key={`${reminder.id}-date-${reminder.dateText ?? ``}`}
+                  type="date"
+                  className="qc-reminder-input-date"
+                  defaultValue={reminder.dateText ?? ``}
+                  onBlur={e => onEdit(reminder.id, { dateText: e.currentTarget.value })}
+                  aria-label="Reminder date"
+                  title="Set date"
+                />
+                <input
+                  key={`${reminder.id}-time-${reminder.timeText ?? ``}`}
+                  type="time"
+                  className="qc-reminder-input-time"
+                  defaultValue={reminder.timeText ?? ``}
+                  onBlur={e => onEdit(reminder.id, { timeText: e.currentTarget.value })}
+                  aria-label="Reminder time"
+                  title="Set time"
+                />
+                <button
+                  type="button"
+                  className="qc-derived-panel__remove"
+                  onClick={() => onRemove(reminder.id)}
+                  aria-label="Remove reminder"
+                >
+                  <XIcon size={13} />
+                </button>
+              </div>
             </div>
-            {reminder.sourceText && <p className="qc-derived-panel__source">{reminder.sourceText}</p>}
+            {reminder.needsDateTime && <div className="qc-reminder-needs-datetime">Needs date/time</div>}
           </div>
         ))}
       </div>
     </section>
+  )
+}
+
+// ── Reminder quick-pick helpers ────────────────────────────────
+
+const REMINDER_QUICK_TIME = `08:00`
+
+function dateToYMD(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, `0`)
+  const day = String(d.getDate()).padStart(2, `0`)
+  return `${y}-${m}-${day}`
+}
+
+function formatPresetDate(dateText: string, timeText: string): string {
+  if (!dateText) return `¯\\_(ツ)_/¯`
+  try {
+    const d = new Date(`${dateText}T${timeText || REMINDER_QUICK_TIME}:00`)
+    const DAY = [`SUN`, `MON`, `TUE`, `WED`, `THU`, `FRI`, `SAT`][d.getDay()]
+    const h = parseInt((timeText || REMINDER_QUICK_TIME).split(`:`)[0] ?? `8`, 10)
+    const ampm = h >= 12 ? `PM` : `AM`
+    const h12 = h % 12 || 12
+    const mm = (timeText || REMINDER_QUICK_TIME).split(`:`)[1] ?? `00`
+    return `${DAY}, ${h12}:${mm} ${ampm}`
+  } catch {
+    return dateText
+  }
+}
+
+type ReminderPreset = { id: string; label: string; dateText: string; timeText: string }
+
+function buildReminderPresets(): ReminderPreset[] {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const nextWeek = new Date()
+  const twd = nextWeek.getDay()
+  nextWeek.setDate(nextWeek.getDate() + (twd === 0 ? 8 : (8 - twd) % 7 || 7))
+
+  const nextWeekend = new Date()
+  const wd = nextWeekend.getDay()
+  nextWeekend.setDate(nextWeekend.getDate() + (wd === 6 ? 7 : (6 - wd + 7) % 7 || 7))
+
+  return [
+    { id: `tomorrow`,     label: `tomorrow`,     dateText: dateToYMD(tomorrow),    timeText: REMINDER_QUICK_TIME },
+    { id: `next-week`,    label: `next week`,    dateText: dateToYMD(nextWeek),    timeText: REMINDER_QUICK_TIME },
+    { id: `next-weekend`, label: `next weekend`, dateText: dateToYMD(nextWeekend), timeText: REMINDER_QUICK_TIME },
+    { id: `someday`,      label: `someday`,      dateText: ``,                      timeText: `` },
+  ]
+}
+
+function parseNaturalLanguageDateTime(input: string): { dateText: string; timeText: string } | null {
+  const lower = input.toLowerCase().trim()
+  if (!lower) return null
+
+  const timeMatch = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/)
+  let hour = 8
+  let minute = 0
+
+  if (timeMatch) {
+    hour = parseInt(timeMatch[1], 10)
+    minute = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0
+    if (timeMatch[3] === `pm` && hour < 12) hour += 12
+    if (timeMatch[3] === `am` && hour === 12) hour = 0
+  }
+
+  const timeText = `${String(hour).padStart(2, `0`)}:${String(minute).padStart(2, `0`)}`
+
+  let targetDate = new Date()
+
+  if (lower.includes(`tomorrow`)) {
+    targetDate.setDate(targetDate.getDate() + 1)
+  } else if (lower.includes(`today`)) {
+    // Use current date
+  } else if (lower.match(/monday|tuesday|wednesday|thursday|friday|saturday|sunday/)) {
+    const dayMap: Record<string, number> = {
+      sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
+    }
+    const dayMatch = Object.entries(dayMap).find(([name]) => lower.includes(name))
+    if (dayMatch) {
+      const targetDay = dayMatch[1]
+      let daysAhead = targetDay - targetDate.getDay()
+      if (daysAhead <= 0) daysAhead += 7
+      targetDate.setDate(targetDate.getDate() + daysAhead)
+    }
+  } else if (lower.includes(`next week`)) {
+    const nw = new Date()
+    const twd = nw.getDay()
+    nw.setDate(nw.getDate() + (twd === 0 ? 8 : (8 - twd) % 7 || 7))
+    targetDate = nw
+  } else if (lower.includes(`next weekend`)) {
+    const nwe = new Date()
+    const wd = nwe.getDay()
+    nwe.setDate(nwe.getDate() + (wd === 6 ? 7 : (6 - wd + 7) % 7 || 7))
+    targetDate = nwe
+  } else if (lower.match(/in\s+(\d+)\s+days?/)) {
+    const match = lower.match(/in\s+(\d+)\s+days?/)
+    if (match) {
+      targetDate.setDate(targetDate.getDate() + parseInt(match[1], 10))
+    }
+  } else if (lower.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/)) {
+    const match = lower.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/)
+    if (match) {
+      const monthMap: Record<string, number> = {
+        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+      }
+      const day = parseInt(match[1], 10)
+      const month = monthMap[match[2]]
+      targetDate.setMonth(month)
+      targetDate.setDate(day)
+      if (targetDate < new Date()) {
+        targetDate.setFullYear(targetDate.getFullYear() + 1)
+      }
+    }
+  }
+
+  const dateText = dateToYMD(targetDate)
+  return { dateText, timeText }
+}
+
+function ReminderQuickPick({
+  dateText,
+  timeText,
+  onPick,
+}: {
+  dateText: string
+  timeText: string
+  onPick: (dateText: string, timeText: string) => void
+}) {
+  const [inputValue, setInputValue] = useState(``)
+  const presets = useMemo(() => buildReminderPresets(), [])
+
+  function handleInputChange(value: string) {
+    setInputValue(value)
+    const parsed = parseNaturalLanguageDateTime(value)
+    if (parsed) {
+      onPick(parsed.dateText, parsed.timeText)
+    }
+  }
+
+  return (
+    <div className="qc-reminder-quick-pick-wrapper">
+      <div className="qc-reminder-quick-pick">
+        {presets.map(p => {
+          const isSomeday = p.id === `someday`
+          const isSelected = isSomeday
+            ? !dateText
+            : p.dateText === dateText && p.timeText === timeText
+          return (
+            <button
+              key={p.id}
+              type="button"
+              className={`qc-reminder-preset${isSelected ? ` qc-reminder-preset--selected` : ``}`}
+              onClick={() => {
+                setInputValue(``)
+                onPick(p.dateText, p.timeText)
+              }}
+            >
+              <span className="qc-reminder-preset__label">{p.label}</span>
+              <span className="qc-reminder-preset__date">
+                {isSomeday ? `¯\\_(ツ)_/¯` : formatPresetDate(p.dateText, p.timeText)}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <input
+        type="text"
+        className="qc-reminder-natural-input"
+        placeholder="Or type: tomorrow 3pm, friday 9am, aug 7..."
+        value={inputValue}
+        onChange={e => handleInputChange(e.currentTarget.value)}
+        aria-label="Type date and time"
+      />
+    </div>
   )
 }
 
@@ -930,7 +1108,7 @@ function MoveReviewModal({
   const hasMissingReminderTime = state.drafts.some(draft =>
     draft.mode === `reminders` &&
     draft.selected &&
-    (!draft.dateText || !draft.timeText),
+    draft.needsDateTime,
   )
   const canAccept =
     state.status === `ready` &&
@@ -943,7 +1121,7 @@ function MoveReviewModal({
         <div className="qc-move-modal__header">
           <div className="qc-move-modal__header-left">
             <div className="qc-move-modal__title">Move to {destinationLabel(state.mode)}</div>
-            <p>{row?.text ?? ``}</p>
+            {state.mode !== `reminders` && <p>{row?.text ?? ``}</p>}
           </div>
           <div className="qc-move-modal__header-actions">
             <button type="button" className="qc-move-modal__text-btn qc-move-modal__text-btn--cancel" onClick={onClose}>
@@ -1048,36 +1226,26 @@ function MoveReviewModal({
             }
 
             return (
-              <div key={draft.id} className="qc-move-modal__draft">
+              <div key={draft.id} className="qc-move-modal__reminder-row">
                 <input
-                  type="checkbox"
-                  checked={draft.selected}
-                  onChange={e => onToggleDraft(draft.id, e.currentTarget.checked)}
-                  aria-label="Include item"
+                  type="text"
+                  className="qc-reminder-text"
+                  value={draft.text}
+                  placeholder="What do you want to be reminded about?"
+                  onChange={e => onUpdateDraft(draft.id, { text: e.currentTarget.value } as Partial<MoveReviewDraft>)}
+                  aria-label="Reminder"
                 />
-                <div className="qc-move-modal__reminder-fields">
-                  <input
-                    type="text"
-                    value={draft.text}
-                    onChange={e => onUpdateDraft(draft.id, { text: e.currentTarget.value } as Partial<MoveReviewDraft>)}
-                    aria-label="Reminder draft"
-                  />
-                  <div>
-                    <input
-                      type="date"
-                      value={draft.dateText}
-                      onChange={e => onUpdateDraft(draft.id, { dateText: e.currentTarget.value } as Partial<MoveReviewDraft>)}
-                      aria-label="Reminder date"
-                    />
-                    <input
-                      type="time"
-                      value={draft.timeText}
-                      onChange={e => onUpdateDraft(draft.id, { timeText: e.currentTarget.value } as Partial<MoveReviewDraft>)}
-                      aria-label="Reminder time"
-                    />
-                  </div>
-                  {(!draft.dateText || !draft.timeText) && <span>Date and time are required.</span>}
-                </div>
+                <ReminderQuickPick
+                  dateText={draft.dateText}
+                  timeText={draft.timeText}
+                  onPick={(dateText, timeText) =>
+                    onUpdateDraft(draft.id, {
+                      dateText,
+                      timeText,
+                      needsDateTime: false,
+                    } as Partial<MoveReviewDraft>)
+                  }
+                />
               </div>
             )
           })}
@@ -1085,7 +1253,7 @@ function MoveReviewModal({
 
       </div>
     </div>,
-    shellEl ?? document.body,
+    document.body,
   )
 }
 
@@ -1982,6 +2150,8 @@ export function QuickCapture() {
       return drafts.length ? drafts : []
     }
 
+    const defaultPreset = buildReminderPresets()[0]!
+
     const drafts = (result.reminders ?? [])
       .map(item => ({
         text: `${item.text ?? ``}`.trim(),
@@ -1993,8 +2163,8 @@ export function QuickCapture() {
       .slice(0, 20)
       .map(item => {
         const derivedFields = dateFieldsFromScheduledAt(item.scheduledAt)
-        const dateText = item.dateText || derivedFields.dateText
-        const timeText = item.timeText || derivedFields.timeText
+        const dateText = item.dateText || derivedFields.dateText || defaultPreset.dateText
+        const timeText = item.timeText || derivedFields.timeText || defaultPreset.timeText
 
         return {
           id: makeTaskId(),
@@ -2004,11 +2174,23 @@ export function QuickCapture() {
           ...(item.scheduledAt ? { scheduledAt: item.scheduledAt } : {}),
           dateText,
           timeText,
-          needsDateTime: !dateText || !timeText,
+          needsDateTime: false,
         }
       })
 
-    return drafts.length ? drafts : []
+    if (drafts.length) return drafts
+
+    // User explicitly chose Reminders — always give them one draft to schedule,
+    // even if the AI found nothing reminder-like in the transcript.
+    return [{
+      id: makeTaskId(),
+      mode: `reminders` as const,
+      selected: true,
+      text: row.text.trim(),
+      dateText: defaultPreset.dateText,
+      timeText: defaultPreset.timeText,
+      needsDateTime: false,
+    }]
   }
 
   async function openMoveReview(row: CaptureHistoryRow, mode: MoveDestinationMode, evt?: MouseEvent) {
@@ -2381,7 +2563,7 @@ export function QuickCapture() {
             ...(scheduledAt ? { scheduledAt } : {}),
             ...(dateText ? { dateText } : {}),
             ...(timeText ? { timeText } : {}),
-            needsDateTime: !dateText || !timeText,
+            needsDateTime: draft.needsDateTime && (!dateText || !timeText),
             done: false,
             createdAt,
             updatedAt: createdAt,
@@ -2821,28 +3003,35 @@ export function QuickCapture() {
               >
 
               <div className="qc-thought-layout">
-                {!isEmbeddedRecording && (
-                  <DestinationRail
-                    activePanel={activePanel}
-                    noteCount={historyRows.length}
-                    taskCount={taskOpenCount}
-                    ideaCount={derivedItems.ideas.length}
-                    reminderCount={reminderOpenCount}
-                    onSelect={(panel) => {
-                      setActivePanel(panel)
-                      setMovePopoverRowId(null)
-                    }}
-                  />
-                )}
+                <DestinationRail
+                  activePanel={activePanel}
+                  noteCount={historyRows.length}
+                  taskCount={taskOpenCount}
+                  ideaCount={derivedItems.ideas.length}
+                  reminderCount={reminderOpenCount}
+                  onSelect={(panel) => {
+                    setActivePanel(panel)
+                    setMovePopoverRowId(null)
+                  }}
+                />
 
                 <div className="qc-thought-main">
                   {!showingDerivedPanel && (
-                    <div
-                      ref={noteTranscriptScrollRef}
-                      className="transcript-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-                      style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
-                    >
-                      <div className="qc-feed">
+                    <>
+                      <div className="qc-derived-panel__summary">
+                        <div>
+                          <div className="qc-derived-panel__title">All notes</div>
+                          <div className="qc-derived-panel__subtitle">
+                            {historyRows.length ? `${historyRows.length} captured` : `Press ⌃Space to record`}
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        ref={noteTranscriptScrollRef}
+                        className="transcript-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+                        style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
+                      >
+                        <div className="qc-feed">
                         {isEmbeddedRecording && (
                           <div
                             className={`qc-inline-recording-card${isProcessingWhisper ? ` qc-inline-recording-card--processing` : ``}`}
@@ -3224,7 +3413,8 @@ export function QuickCapture() {
                           </p>
                         )}
                       </div>
-                    </div>
+                      </div>
+                    </>
                   )}
 
                   {activePanel === `tasks` && showingDerivedPanel && (

@@ -1570,12 +1570,11 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
-    margin: 12px 14px 8px;
+    margin: 10px 14px 6px;
     padding: 9px 10px 9px 12px;
     border: 1px solid var(--qc-border);
     border-radius: var(--qc-radius-md);
-    background: var(--qc-bg-hover);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--qc-bg-surface) 68%, transparent);
+    background: transparent;
     animation: qc-live-fadein 160ms ease;
     -webkit-app-region: no-drag;
     app-region: no-drag;
@@ -1583,7 +1582,6 @@
 
   .qc-inline-recording-card--processing {
     border-style: dashed;
-    background: var(--qc-bg-hover);
   }
 
   .qc-inline-recording-card__wave {
@@ -1661,7 +1659,7 @@
   }
 
   .qc-inline-recording-card__icon-btn:hover {
-    background: var(--qc-bg-content);
+    background: var(--qc-bg-hover);
     color: var(--qc-icon-active);
   }
 
@@ -2428,25 +2426,88 @@
     resize: vertical;
   }
 
-  .qc-derived-panel__datetime {
+  .qc-derived-panel__item--reminder {
     display: grid;
-    grid-column: 2 / -1;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-    align-items: center;
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .qc-reminder-item-main {
+    display: flex;
+    flex-direction: column;
     gap: 6px;
+    min-width: 0;
   }
 
-  .qc-derived-panel__datetime input {
-    border: 1px solid var(--qc-border);
-    background: var(--qc-bg-surface);
+  .qc-reminder-item-text {
+    width: 100%;
+    min-width: 0;
+    border: none;
+    border-radius: var(--qc-radius-sm);
+    background: transparent;
+    color: var(--qc-text-primary);
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+    outline: none;
+    padding: 4px 5px;
+  }
+
+  .qc-reminder-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+
+  .qc-reminder-input-date,
+  .qc-reminder-input-time {
+    border: none;
+    background: transparent;
+    color: var(--qc-text-secondary);
+    font: inherit;
     font-size: 12px;
-    padding: 6px 7px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+    min-width: 0;
   }
 
-  .qc-derived-panel__datetime span {
+  .qc-reminder-input-date {
+    width: 90px;
+  }
+
+  .qc-reminder-input-time {
+    width: 70px;
+  }
+
+  .qc-reminder-input-date:hover,
+  .qc-reminder-input-time:hover {
+    background: var(--qc-bg-hover);
+    border-radius: var(--qc-radius-sm);
+    color: var(--qc-text-primary);
+  }
+
+  .qc-reminder-input-date:focus,
+  .qc-reminder-input-time:focus {
+    background: color-mix(in srgb, var(--qc-accent) 8%, transparent);
+    border-radius: var(--qc-radius-sm);
+    color: var(--qc-text-primary);
+  }
+
+  .qc-derived-panel__item--reminder .qc-derived-panel__remove {
+    padding: 2px 4px;
+    margin-left: auto;
+  }
+
+  .qc-reminder-needs-datetime {
     color: var(--qc-text-muted);
     font-size: 11px;
-    white-space: nowrap;
+    padding: 2px 5px;
+    margin-top: 2px;
   }
 
   /* ── Clean task list (Things-style) ───────────────────────── */
@@ -2946,6 +3007,130 @@
     color: var(--recording-red);
     font-size: 11px;
     line-height: 1.2;
+  }
+
+  /* ── Reminder quick-pick row ────────────────────────────────── */
+
+  .qc-move-modal__reminder-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .qc-reminder-text {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--qc-text-primary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 4px 2px 12px;
+    outline: none;
+  }
+
+  .qc-reminder-text::placeholder {
+    color: var(--qc-text-muted);
+    font-weight: 400;
+  }
+
+  .qc-reminder-quick-pick {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--qc-border);
+    margin: 0 -12px;
+    padding: 0 12px;
+  }
+
+  .qc-reminder-preset {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 0;
+    border: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--qc-border) 50%, transparent);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: background 80ms ease;
+    margin: 0 -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .qc-reminder-preset:last-child {
+    border-bottom: none;
+  }
+
+  .qc-reminder-preset:hover {
+    background: var(--qc-bg-hover);
+  }
+
+  .qc-reminder-preset--selected {
+    background: color-mix(in srgb, var(--qc-accent) 8%, transparent);
+  }
+
+  .qc-reminder-preset--selected:hover {
+    background: color-mix(in srgb, var(--qc-accent) 12%, transparent);
+  }
+
+  .qc-reminder-preset__label {
+    color: var(--qc-text-primary);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .qc-reminder-preset--selected .qc-reminder-preset__label {
+    color: var(--qc-accent);
+    font-weight: 600;
+  }
+
+  .qc-reminder-preset__date {
+    color: var(--qc-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .qc-reminder-preset--selected .qc-reminder-preset__date {
+    color: var(--qc-accent);
+    opacity: 0.8;
+  }
+
+  .qc-reminder-quick-pick-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .qc-reminder-natural-input {
+    border: none;
+    background: transparent;
+    padding: 11px 12px;
+    border-top: 1px solid var(--qc-border);
+    color: var(--qc-text-primary);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    transition: background 80ms ease;
+    margin: 0;
+  }
+
+  .qc-reminder-natural-input::placeholder {
+    color: var(--qc-text-muted);
+  }
+
+  .qc-reminder-natural-input:hover {
+    background: var(--qc-bg-hover);
+  }
+
+  .qc-reminder-natural-input:focus {
+    background: color-mix(in srgb, var(--qc-accent) 6%, transparent);
   }
 
   /* ── Idea row (modal) — flat, like task row ─────────────────── */
