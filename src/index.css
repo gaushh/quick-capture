@@ -2791,23 +2791,16 @@
 
   /* ── All Notes header with search ────────────────────────────────────── */
 
-  .qc-all-notes-header {
-    display: flex;
-    align-items: center;
+  .qc-all-notes-summary {
+    justify-content: flex-start;
     gap: 12px;
-    width: 100%;
-  }
-
-  .qc-all-notes-header .qc-derived-panel__title {
-    flex-shrink: 0;
   }
 
   .qc-all-notes-search {
     display: flex;
     align-items: center;
     gap: 6px;
-    flex: 1;
-    max-width: 300px;
+    flex: 0 0 auto;
   }
 
   .qc-search-input {
