@@ -929,12 +929,6 @@ function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPane
             </div>
             {group.items.map(reminder => (
               <div key={reminder.id} className={`qc-derived-panel__item qc-derived-panel__item--reminder${reminder.done ? ` qc-derived-panel__item--done` : ``}`}>
-                <input
-                  type="checkbox"
-                  checked={reminder.done}
-                  className="qc-derived-panel__checkbox"
-                  onChange={e => onToggle(reminder.id, e.currentTarget.checked)}
-                />
                 <div className="qc-reminder-item-main">
                   <textarea
                     key={`${reminder.id}-text-${reminder.text}`}
