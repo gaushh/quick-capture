@@ -319,8 +319,9 @@ function getAppSafeBounds(): { top: number; left: number; right: number; bottom:
 /** Inner tooltip div — measures itself after mount and clamps within the app bounds, repositioning vertically if needed. */
 function TooltipEl({ content, anchorRect }: { content: string; anchorRect: DOMRect }) {
   const ref = useRef<HTMLDivElement>(null)
+  const TOOLTIP_GAP = 12 // gap between anchor and tooltip so the icon stays readable + clickable
   const [left, setLeft] = useState<number>(() => Math.round(anchorRect.left + anchorRect.width / 2))
-  const [top, setTop] = useState<number>(() => Math.round(anchorRect.top - 7))
+  const [top, setTop] = useState<number>(() => Math.round(anchorRect.top - TOOLTIP_GAP))
   const [transform, setTransform] = useState<string>(`translateY(-100%)`)
 
   useLayoutEffect(() => {
@@ -337,22 +338,22 @@ function TooltipEl({ content, anchorRect }: { content: string; anchorRect: DOMRe
     // Vertical positioning: try above first, fall back to below if not enough space
     const spaceAbove = anchorRect.top - bounds.top
     const spaceBelow = bounds.bottom - anchorRect.bottom
-    const tooltipHeight = height + 12 // tooltip height + gap
+    const tooltipHeight = height + TOOLTIP_GAP + 4
 
     let newTop: number
     let newTransform: string
 
     if (spaceAbove >= tooltipHeight) {
       // Position above anchor
-      newTop = Math.round(anchorRect.top - 7)
+      newTop = Math.round(anchorRect.top - TOOLTIP_GAP)
       newTransform = `translateY(-100%)`
     } else if (spaceBelow >= tooltipHeight) {
       // Position below anchor
-      newTop = Math.round(anchorRect.bottom + 7)
+      newTop = Math.round(anchorRect.bottom + TOOLTIP_GAP)
       newTransform = `translateY(0%)`
     } else {
       // Not enough space either way, use above but may be clipped
-      newTop = Math.round(Math.max(bounds.top, anchorRect.top - 7))
+      newTop = Math.round(Math.max(bounds.top, anchorRect.top - TOOLTIP_GAP))
       newTransform = `translateY(-100%)`
     }
 

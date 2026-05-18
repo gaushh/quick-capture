@@ -1896,7 +1896,6 @@
     pointer-events: none;
     user-select: none;
     animation: qc-tooltip-in 120ms ease forwards;
-    margin-top: 8px;
   }
 
   @keyframes qc-tooltip-in {
