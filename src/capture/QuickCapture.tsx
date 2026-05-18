@@ -716,13 +716,12 @@ function TaskManagerPanel({
             {group.items.map(task => (
               <div key={task.id} className={`qc-task-row${task.status === `done` ? ` qc-task-row--done` : ``}`}>
                 <TaskStatusPicker status={task.status} onSetStatus={s => onSetStatus(task.id, s)} />
-                <input
+                <textarea
                   key={`${task.id}-${task.text}`}
-                  type="text"
                   className="qc-task-text"
                   defaultValue={task.text}
                   onBlur={e => onEdit(task.id, e.currentTarget.value)}
-                  onKeyDown={e => { if (e.key === `Enter`) e.currentTarget.blur() }}
+                  onKeyDown={e => { if (e.key === `Enter` && e.ctrlKey) e.currentTarget.blur() }}
                   aria-label="Task"
                 />
                 <button

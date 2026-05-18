@@ -2684,10 +2684,11 @@
     padding: 0;
     outline: none;
     overflow: visible;
-    white-space: normal;
+    white-space: pre-wrap;
     word-wrap: break-word;
     cursor: text;
     transition: background 120ms ease;
+    resize: none;
   }
 
   .qc-task-text:focus {
