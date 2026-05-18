@@ -1024,70 +1024,101 @@ function buildReminderPresets(): ReminderPreset[] {
 }
 
 function parseNaturalLanguageDateTime(input: string): { dateText: string; timeText: string } | null {
-  const lower = input.toLowerCase().trim()
+  // Strip ordinal suffixes (1st, 2nd, 3rd, 4th, ...) so "may 30th" parses
+  const lower = input.toLowerCase().trim().replace(/(\d+)(st|nd|rd|th)/g, `$1`)
   if (!lower) return null
 
-  const timeMatch = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/)
+  // Time: capture "4pm", "4 pm", "4:30 pm", "16:00". Avoid matching bare numbers as time.
+  const timeMatch = lower.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/) || lower.match(/\b(\d{1,2}):(\d{2})\b/)
   let hour = 8
   let minute = 0
+  let hasExplicitTime = false
 
   if (timeMatch) {
+    hasExplicitTime = true
     hour = parseInt(timeMatch[1], 10)
     minute = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0
-    if (timeMatch[3] === `pm` && hour < 12) hour += 12
-    if (timeMatch[3] === `am` && hour === 12) hour = 0
+    const ampm = timeMatch[3]
+    if (ampm === `pm` && hour < 12) hour += 12
+    if (ampm === `am` && hour === 12) hour = 0
   }
 
   const timeText = `${String(hour).padStart(2, `0`)}:${String(minute).padStart(2, `0`)}`
 
+  const monthMap: Record<string, number> = {
+    jan: 0, january: 0,
+    feb: 1, february: 1,
+    mar: 2, march: 2,
+    apr: 3, april: 3,
+    may: 4,
+    jun: 5, june: 5,
+    jul: 6, july: 6,
+    aug: 7, august: 7,
+    sep: 8, sept: 8, september: 8,
+    oct: 9, october: 9,
+    nov: 10, november: 10,
+    dec: 11, december: 11,
+  }
+
   let targetDate = new Date()
+  let hasDateHint = false
 
   if (lower.includes(`tomorrow`)) {
+    hasDateHint = true
     targetDate.setDate(targetDate.getDate() + 1)
-  } else if (lower.includes(`today`)) {
-    // Use current date
-  } else if (lower.match(/monday|tuesday|wednesday|thursday|friday|saturday|sunday/)) {
-    const dayMap: Record<string, number> = {
-      sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
-    }
-    const dayMatch = Object.entries(dayMap).find(([name]) => lower.includes(name))
-    if (dayMatch) {
-      const targetDay = dayMatch[1]
-      let daysAhead = targetDay - targetDate.getDay()
-      if (daysAhead <= 0) daysAhead += 7
-      targetDate.setDate(targetDate.getDate() + daysAhead)
-    }
-  } else if (lower.includes(`next week`)) {
-    const nw = new Date()
-    const twd = nw.getDay()
-    nw.setDate(nw.getDate() + (twd === 0 ? 8 : (8 - twd) % 7 || 7))
-    targetDate = nw
+  } else if (lower.includes(`today`) || lower.includes(`tonight`)) {
+    hasDateHint = true
   } else if (lower.includes(`next weekend`)) {
+    hasDateHint = true
     const nwe = new Date()
     const wd = nwe.getDay()
     nwe.setDate(nwe.getDate() + (wd === 6 ? 7 : (6 - wd + 7) % 7 || 7))
     targetDate = nwe
+  } else if (lower.includes(`next week`)) {
+    hasDateHint = true
+    const nw = new Date()
+    const twd = nw.getDay()
+    nw.setDate(nw.getDate() + (twd === 0 ? 8 : (8 - twd) % 7 || 7))
+    targetDate = nw
   } else if (lower.match(/in\s+(\d+)\s+days?/)) {
+    hasDateHint = true
     const match = lower.match(/in\s+(\d+)\s+days?/)
     if (match) {
       targetDate.setDate(targetDate.getDate() + parseInt(match[1], 10))
     }
-  } else if (lower.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/)) {
-    const match = lower.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/)
-    if (match) {
-      const monthMap: Record<string, number> = {
-        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
-      }
-      const day = parseInt(match[1], 10)
-      const month = monthMap[match[2]]
-      targetDate.setMonth(month)
-      targetDate.setDate(day)
-      if (targetDate < new Date()) {
-        targetDate.setFullYear(targetDate.getFullYear() + 1)
+  } else {
+    // "day month" e.g. "30 may"
+    const dayMonth = lower.match(/\b(\d{1,2})\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\b/)
+    // "month day" e.g. "may 30"
+    const monthDay = lower.match(/\b(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(\d{1,2})\b/)
+    if (dayMonth) {
+      hasDateHint = true
+      const day = parseInt(dayMonth[1], 10)
+      const month = monthMap[dayMonth[2]]
+      targetDate = new Date(targetDate.getFullYear(), month, day)
+      if (targetDate < new Date()) targetDate.setFullYear(targetDate.getFullYear() + 1)
+    } else if (monthDay) {
+      hasDateHint = true
+      const month = monthMap[monthDay[1]]
+      const day = parseInt(monthDay[2], 10)
+      targetDate = new Date(targetDate.getFullYear(), month, day)
+      if (targetDate < new Date()) targetDate.setFullYear(targetDate.getFullYear() + 1)
+    } else {
+      const weekday = lower.match(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/)
+      if (weekday) {
+        hasDateHint = true
+        const dayMap: Record<string, number> = {
+          sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
+        }
+        const targetDay = dayMap[weekday[1]]
+        let daysAhead = targetDay - targetDate.getDay()
+        if (daysAhead <= 0) daysAhead += 7
+        targetDate.setDate(targetDate.getDate() + daysAhead)
       }
     }
   }
+
+  if (!hasDateHint && !hasExplicitTime) return null
 
   const dateText = dateToYMD(targetDate)
   return { dateText, timeText }
@@ -1142,9 +1173,19 @@ function ReminderQuickPick({
       <input
         type="text"
         className="qc-reminder-natural-input"
-        placeholder="Or type: tomorrow 3pm, friday 9am, aug 7..."
+        placeholder="Or type: tomorrow 3pm, friday 9am, may 30 4pm..."
         value={inputValue}
         onChange={e => handleInputChange(e.currentTarget.value)}
+        onKeyDown={e => {
+          if (e.key === `Enter`) {
+            e.preventDefault()
+            const parsed = parseNaturalLanguageDateTime(inputValue)
+            if (parsed) {
+              onPick(parsed.dateText, parsed.timeText)
+              setInputValue(``)
+            }
+          }
+        }}
         aria-label="Type date and time"
       />
     </div>
