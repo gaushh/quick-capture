@@ -2689,6 +2689,7 @@
     cursor: text;
     transition: background 120ms ease;
     resize: none;
+    field-sizing: content;
   }
 
   .qc-task-text:focus {
