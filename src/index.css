@@ -2483,7 +2483,7 @@
     color: var(--qc-text-secondary);
     font: inherit;
     font-size: 12px;
-    padding: 2px 4px;
+    padding: 2px 0;
     outline: none;
     cursor: pointer;
     min-width: 0;
