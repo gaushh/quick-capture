@@ -81,6 +81,7 @@
     --qc-accent: #3B82F6;
     --recording-red: #EF4444;
     --success-green: #10B981;
+    --warning-orange: #F59E0B;
 
     /* Shadows */
     --qc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -133,6 +134,7 @@
     --qc-accent: #60A5FA;
     --recording-red: #F87171;
     --success-green: #34D399;
+    --warning-orange: #FBBF24;
 
     --qc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
     --qc-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25);
@@ -2188,6 +2190,47 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Toast type variants */
+  .qc-feed-ack--success {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.2);
+    color: var(--success-green);
+  }
+
+  .qc-feed-ack--success svg {
+    color: var(--success-green);
+  }
+
+  .qc-feed-ack--danger {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: var(--recording-red);
+  }
+
+  .qc-feed-ack--danger svg {
+    color: var(--recording-red);
+  }
+
+  .qc-feed-ack--warning {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.2);
+    color: var(--warning-orange);
+  }
+
+  .qc-feed-ack--warning svg {
+    color: var(--warning-orange);
+  }
+
+  .qc-feed-ack--info {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.2);
+    color: var(--qc-accent);
+  }
+
+  .qc-feed-ack--info svg {
+    color: var(--qc-accent);
   }
 
   .qc-thought-layout {

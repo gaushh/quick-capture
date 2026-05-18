@@ -1560,6 +1560,7 @@ export function QuickCapture() {
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [feedAckText, setFeedAckText] = useState<string | null>(null)
+  const [feedAckType, setFeedAckType] = useState<'success' | 'danger' | 'warning' | 'info'>('success')
   const [movePopoverRowId, setMovePopoverRowId] = useState<string | null>(null)
   const [moveReview, setMoveReview] = useState<MoveReviewState | null>(null)
   /** Idle pill: hover expands to reveal dictation (second row). */
@@ -1750,9 +1751,10 @@ export function QuickCapture() {
     }
   }
 
-  function showFeedAcknowledgement(message: string) {
+  function showFeedAcknowledgement(message: string, type: 'success' | 'danger' | 'warning' | 'info' = 'success') {
     clearFeedAckTimer()
     setFeedAckText(message)
+    setFeedAckType(type)
     deleteAckTimerRef.current = setTimeout(() => {
       deleteAckTimerRef.current = null
       setFeedAckText(null)
@@ -1760,7 +1762,7 @@ export function QuickCapture() {
   }
 
   function showDeleteAcknowledgement(count: number) {
-    showFeedAcknowledgement(count === 1 ? `Deleted 1 note` : `Deleted ${count} notes`)
+    showFeedAcknowledgement(count === 1 ? `Deleted 1 note` : `Deleted ${count} notes`, 'danger')
   }
 
   function resetLatestCopyState() {
@@ -2069,7 +2071,7 @@ export function QuickCapture() {
       setPastCleanupDraft(null)
       setIsProcessingWhisper(false)
       setPhase(`output`)
-      showFeedAcknowledgement(`No speech captured`)
+      showFeedAcknowledgement(`No speech captured`, 'warning')
       return
     }
 
@@ -2092,7 +2094,7 @@ export function QuickCapture() {
       setPastCleanupDraft(null)
       setIsProcessingWhisper(false)
       setPhase(`output`)
-      showFeedAcknowledgement(`No speech captured`)
+      showFeedAcknowledgement(`No speech captured`, 'warning')
       return
     }
 
@@ -2385,7 +2387,7 @@ export function QuickCapture() {
 
     const sourceText = row.text.trim()
     if (!sourceText.length || row.silent || classifySilentTranscript(sourceText)) {
-      showFeedAcknowledgement(`No speech to move`)
+      showFeedAcknowledgement(`No speech to move`, 'warning')
       return
     }
     if (isEmbeddedRecording || isProcessingWhisper) return
@@ -2505,7 +2507,7 @@ export function QuickCapture() {
     const text = taskAddText.trim()
     if (!text.length) return
 
-    showFeedAcknowledgement(`Task added`)
+    showFeedAcknowledgement(`Task added`, 'success')
     const now = nowMs()
     saveTasks([
       {
@@ -2525,7 +2527,7 @@ export function QuickCapture() {
 
   function setTaskStatus(taskId: string, status: TaskStatus) {
     const label = status === `done` ? `Task done` : status === `in_progress` ? `In progress` : `Task reopened`
-    showFeedAcknowledgement(label)
+    showFeedAcknowledgement(label, 'success')
     saveTasks(derivedItems.tasks.map(item =>
       item.id === taskId ? { ...item, status, checked: status === `done`, updatedAt: nowMs() } : item,
     ))
@@ -2541,7 +2543,7 @@ export function QuickCapture() {
   }
 
   function removeTask(taskId: string) {
-    showFeedAcknowledgement(`Task removed`)
+    showFeedAcknowledgement(`Task removed`, 'danger')
     saveTasks(derivedItems.tasks.filter(item => item.id !== taskId))
   }
 
@@ -2567,7 +2569,7 @@ export function QuickCapture() {
   }
 
   function removeIdea(ideaId: string) {
-    showFeedAcknowledgement(`Idea removed`)
+    showFeedAcknowledgement(`Idea removed`, 'danger')
     saveIdeas(derivedItems.ideas.filter(item => item.id !== ideaId))
   }
 
@@ -2583,7 +2585,7 @@ export function QuickCapture() {
   }
 
   function toggleReminder(reminderId: string, done: boolean) {
-    showFeedAcknowledgement(done ? `Reminder done` : `Reminder reopened`)
+    showFeedAcknowledgement(done ? `Reminder done` : `Reminder reopened`, 'success')
     saveReminders(derivedItems.reminders.map(item =>
       item.id === reminderId ? { ...item, done, updatedAt: nowMs() } : item,
     ))
@@ -2617,7 +2619,7 @@ export function QuickCapture() {
   }
 
   function removeReminder(reminderId: string) {
-    showFeedAcknowledgement(`Reminder removed`)
+    showFeedAcknowledgement(`Reminder removed`, 'danger')
     saveReminders(derivedItems.reminders.filter(item => item.id !== reminderId))
   }
 
@@ -2628,7 +2630,7 @@ export function QuickCapture() {
 
     try {
       await writeClipboardText(lines.join(`\n`))
-      showFeedAcknowledgement(`Tasks copied`)
+      showFeedAcknowledgement(`Tasks copied`, 'success')
     } catch {
       //
     }
@@ -2710,7 +2712,7 @@ export function QuickCapture() {
 
       saveTasks([...nextTasks, ...derivedItems.tasks])
       setActivePanel(`tasks`)
-      showFeedAcknowledgement(`${nextTasks.length} added to Tasks`)
+      showFeedAcknowledgement(`${nextTasks.length} added to Tasks`, 'success')
     }
 
     if (moveReview.mode === `ideas`) {
@@ -2730,7 +2732,7 @@ export function QuickCapture() {
 
       saveIdeas([...nextIdeas, ...derivedItems.ideas])
       setActivePanel(`ideas`)
-      showFeedAcknowledgement(`${nextIdeas.length} added to Ideas`)
+      showFeedAcknowledgement(`${nextIdeas.length} added to Ideas`, 'success')
     }
 
     if (moveReview.mode === `reminders`) {
@@ -2759,7 +2761,7 @@ export function QuickCapture() {
 
       saveReminders([...nextReminders, ...derivedItems.reminders])
       setActivePanel(`reminders`)
-      showFeedAcknowledgement(`${nextReminders.length} added to Reminders`)
+      showFeedAcknowledgement(`${nextReminders.length} added to Reminders`, 'success')
     }
 
     // Mark this row as moved so the feed shows the destination label
@@ -2775,7 +2777,7 @@ export function QuickCapture() {
     const updatedRows = clearCaptureHistoryMovedTo(row.id)
     setHistoryRows(updatedRows)
     setMovePopoverRowId(null)
-    showFeedAcknowledgement(`Removed from ${label}`)
+    showFeedAcknowledgement(`Removed from ${label}`, 'danger')
   }
 
   async function handleFeedRowCleanUp(
@@ -2853,7 +2855,7 @@ export function QuickCapture() {
 
       const polished = `${outcome.cleanedText ?? ``}`.trim()
       if (!polished.length || polished === trimmed) {
-        showFeedAcknowledgement(`Already tidy — no changes needed.`)
+        showFeedAcknowledgement(`Already tidy — no changes needed.`, 'warning')
         return
       }
 
@@ -2869,7 +2871,7 @@ export function QuickCapture() {
         setPastCleanupDraft(null)
       }
       setHistoryRows(loadCaptureHistory())
-      showFeedAcknowledgement(`Tidied`)
+      showFeedAcknowledgement(`Tidied`, 'success')
     } catch {
       revealAiBanner(`Tidy failed — check connectivity and quotas.`)
     } finally {
@@ -3698,12 +3700,15 @@ export function QuickCapture() {
 
               {feedAckText && !isSelectionMode && (
                 <div
-                  className="qc-feed-ack"
+                  className={`qc-feed-ack qc-feed-ack--${feedAckType}`}
                   role="status"
                   aria-live="polite"
                   style={{ WebkitAppRegion: `no-drag` } as CSSProperties}
                 >
-                  <CheckIcon size={13} />
+                  {feedAckType === 'success' && <CheckIcon size={13} />}
+                  {feedAckType === 'danger' && <XIcon size={13} />}
+                  {feedAckType === 'warning' && <AlertCircleIcon size={13} />}
+                  {feedAckType === 'info' && <InfoIcon size={13} />}
                   <span>{feedAckText}</span>
                 </div>
               )}
