@@ -3392,40 +3392,22 @@
     opacity: 0.5;
   }
 
-  .qc-tag-pill--product {
-    color: #4f5bbd;
-    background: color-mix(in srgb, #5e6ad2 14%, transparent);
-    border-color: color-mix(in srgb, #5e6ad2 30%, var(--qc-border));
-  }
-  .qc-tag-pill--product .qc-tag-pill__dot,
-  .qc-tag-pill__dot--product { background: #5e6ad2; }
-
-  .qc-tag-pill--strategy {
-    color: #8b51bf;
-    background: color-mix(in srgb, #a855f7 14%, transparent);
-    border-color: color-mix(in srgb, #a855f7 30%, var(--qc-border));
-  }
-  .qc-tag-pill--strategy .qc-tag-pill__dot,
-  .qc-tag-pill__dot--strategy { background: #a855f7; }
-
-  .qc-tag-pill--content {
-    color: #b56b15;
-    background: color-mix(in srgb, #f59e0b 16%, transparent);
-    border-color: color-mix(in srgb, #f59e0b 32%, var(--qc-border));
-  }
-  .qc-tag-pill--content .qc-tag-pill__dot,
-  .qc-tag-pill__dot--content { background: #f59e0b; }
-
+  .qc-tag-pill--product,
+  .qc-tag-pill--strategy,
+  .qc-tag-pill--content,
   .qc-tag-pill--other {
     color: var(--qc-text-secondary);
-    background: var(--qc-bg-hover);
+    background: transparent;
+    border: 1px solid var(--qc-border);
   }
+  .qc-tag-pill--product .qc-tag-pill__dot,
+  .qc-tag-pill__dot--product,
+  .qc-tag-pill--strategy .qc-tag-pill__dot,
+  .qc-tag-pill__dot--strategy,
+  .qc-tag-pill--content .qc-tag-pill__dot,
+  .qc-tag-pill__dot--content,
   .qc-tag-pill--other .qc-tag-pill__dot,
   .qc-tag-pill__dot--other { background: var(--qc-text-muted); }
-
-  :root.qc-theme-dark .qc-tag-pill--product { color: #b4bcef; }
-  :root.qc-theme-dark .qc-tag-pill--strategy { color: #d8b1f0; }
-  :root.qc-theme-dark .qc-tag-pill--content { color: #f5c479; }
 
   .qc-tag-pill--selected {
     background: var(--qc-bg-hover);
