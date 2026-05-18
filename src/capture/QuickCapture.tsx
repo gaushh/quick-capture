@@ -865,6 +865,15 @@ function getReminderGroup(reminder: CaptureDerivedReminder): ReminderGroup {
   return reminderDate >= today ? `upcoming` : `past`
 }
 
+function isReminderPast(reminder: CaptureDerivedReminder): boolean {
+  if (!reminder.dateText) return false
+  const reminderDate = new Date(reminder.dateText)
+  reminderDate.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return reminderDate < today
+}
+
 const REMINDER_GROUP_ORDER: ReminderGroup[] = [`upcoming`, `past`, `no-date`]
 const REMINDER_GROUP_LABEL: Record<ReminderGroup, string> = {
   upcoming: `Upcoming`,
@@ -937,7 +946,7 @@ function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPane
                     onBlur={e => onEdit(reminder.id, { text: e.currentTarget.value })}
                     aria-label="Reminder"
                   />
-                  <div className="qc-reminder-item-meta">
+                  <div className={`qc-reminder-item-meta${isReminderPast(reminder) ? ` qc-reminder-item-meta--past` : ` qc-reminder-item-meta--upcoming`}`}>
                     <input
                       key={`${reminder.id}-date-${reminder.dateText ?? ``}`}
                       type="date"

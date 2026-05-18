@@ -2506,14 +2506,12 @@
     color: var(--qc-text-secondary);
   }
 
-  .qc-reminder-item-meta::before {
-    content: 'Reminders';
-    font-size: 11px;
+  .qc-reminder-item-meta--upcoming {
     color: var(--qc-text-secondary);
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-right: 4px;
+  }
+
+  .qc-reminder-item-meta--past {
+    color: #FF6B35;
   }
 
   .qc-reminder-meta-icon {
