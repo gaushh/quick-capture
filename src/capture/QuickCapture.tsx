@@ -563,6 +563,7 @@ function TaskStatusPicker({
   const [open, setOpen] = useState(false)
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, openUp: false })
   const btnRef = useRef<HTMLButtonElement | null>(null)
+  const popoverRef = useRef<HTMLDivElement | null>(null)
 
   const POPOVER_H = 116 // approx height of the 3-item popover
   const POPOVER_W = 180 // conservative width incl. icon + label + padding
@@ -589,7 +590,12 @@ function TaskStatusPicker({
 
   useEffect(() => {
     if (!open) return
-    const close = () => setOpen(false)
+    const close = (e: globalThis.MouseEvent) => {
+      const target = e.target as Node | null
+      if (popoverRef.current?.contains(target)) return
+      if (btnRef.current?.contains(target)) return
+      setOpen(false)
+    }
     document.addEventListener(`mousedown`, close)
     return () => document.removeEventListener(`mousedown`, close)
   }, [open])
@@ -608,10 +614,10 @@ function TaskStatusPicker({
       </button>
       {open && createPortal(
         <div
+          ref={popoverRef}
           className="qc-status-popover"
           role="menu"
           style={{ position: `fixed`, top: popoverPos.top, left: popoverPos.left, transformOrigin: popoverPos.openUp ? `bottom left` : `top left` }}
-          onMouseDown={e => e.stopPropagation()}
         >
           {STATUS_ORDER.map(s => (
             <button
@@ -619,7 +625,7 @@ function TaskStatusPicker({
               type="button"
               role="menuitem"
               className={`qc-status-popover__item${s === status ? ` qc-status-popover__item--active` : ``}`}
-              onClick={e => { e.stopPropagation(); onSetStatus(s); setOpen(false) }}
+              onClick={() => { onSetStatus(s); setOpen(false) }}
             >
               <TaskStatusIcon status={s} />
               {STATUS_LABEL[s]}

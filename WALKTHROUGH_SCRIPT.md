@@ -1,195 +1,199 @@
 # Quick Capture — Video Walkthrough Script
 
-> **How to use this:** Read through once before recording. Each section maps to something you'll show on screen. Feel free to paraphrase — these are talking points, not lines to memorize verbatim. Aim for ~5–8 minutes total.
+> Read through once before recording. Sections map to things you'll show on screen.
+> Paraphrase freely — these are talking points, not lines to memorise.
+> Aim for 6–8 minutes total.
 
 ---
 
-## 1. Opening — What this is and why
+## 1. Opening — The problem and the brief
 
-*[App visible, idle pill sitting in the bottom-right corner of the screen]*
+*[App visible. Idle pill sitting in bottom-right corner of the screen.]*
 
-"So, the brief was to build a mini desktop app for quick audio capture — think Siri, but for notes. The core problem I was solving is the friction between having a thought and writing it down. Most note-taking tools ask you to open an app, create a document, give it a title. By that point the thought is gone.
+"The brief was to build a mini desktop app for quick audio capture — think Siri for notes.
 
-Quick Capture is designed around a single principle: the fastest path from thought to text. It lives in the corner of your screen, stays out of your way when you don't need it, and is one keystroke away when you do."
+The problem I was solving is the friction between having a thought and getting it down. Most note-taking tools ask you to open an app, find a document, give it a title. By the time you've done all that, the thought is gone.
 
----
+Quick Capture is built around one principle: the fastest possible path from thought to text. It lives permanently in the corner of your screen, out of the way when you don't need it, and one keystroke away when you do.
 
-## 2. The idle pill — Minimal footprint
-
-*[Point at the idle pill sitting in the corner]*
-
-"The starting state is a small 124×38px pill — just two buttons separated by a divider. The left one opens your notes feed, the right one starts recording. That's the entire idle UI.
-
-The rationale here is desktop real estate. This app needs to live on top of everything else — it's always-on-top by design — so it has to earn its screen space. A pill this small is less intrusive than a macOS menu bar icon but always visible and one click away.
-
-I used a very light shadow on it — `2px 6px rgba(0,0,0,0.06)` plus a hairline border — not the heavier elevation shadow that the output panel uses. The idle pill should read as a lightweight, ambient element, not a prominent UI surface."
+The brief asked for Linear-inspired design. I took that seriously — not just aesthetically, but philosophically. Linear is a tool that respects your attention. Every interaction is intentional, nothing is decorative, and the UI never gets in the way of the work. That's what I aimed for here."
 
 ---
 
-## 3. Starting a recording — ⌃Space shortcut
+## 2. The idle pill — Earning its screen space
 
-*[Trigger recording via button or shortcut]*
+*[Point at the idle pill]*
 
-"You can start recording by clicking the mic icon or hitting ⌃Space anywhere on your desktop. That global shortcut is the main interaction — the whole point is that you never have to reach for the mouse.
+"This is the resting state. A 124 by 38 pixel pill with two controls — a notes icon on the left, a mic button on the right. That's it.
 
-When recording starts, the app transitions from the pill directly into the full notes panel. I made a deliberate decision here: recording is embedded inside the scratchpad rather than being its own isolated state. This is because I wanted history to be visible while you're speaking — you can see what you've said before, which helps you pick up a train of thought."
+The design decision here is about desktop real estate. This app has to sit on top of everything you're doing all day. At this size it's smaller than most menu bar dropdowns. I used a very subtle shadow — barely there — because in the idle state this should feel like ambient furniture, not a feature demanding your attention.
 
----
-
-## 4. The three-phase morphing animation
-
-*[Trigger the idle → recording → output transition a few times slowly]*
-
-"There are three phases: idle, recording, and output. The shell — this outer container — morphs between them using a spring animation rather than a linear ease. It changes both its dimensions and its border-radius at the same time, so the pill rounds into a card rather than snapping.
-
-I chose spring physics because it feels alive in a way that ease-in-out doesn't. The app is operating close to the user's cursor, so motion quality matters more here than it would inside a regular window. This was one of the details specifically called out in the brief — microanimations as a craft signal."
+I also chose a pill shape rather than a square or rounded rectangle. The pill reads as a transient, lightweight element — it signals that this thing is going to expand and contract, that it's dynamic. A rectangle would feel like a window. This doesn't."
 
 ---
 
-## 5. While recording — The listening bar
+## 3. Recording — One keystroke, no friction
 
-*[Show the recording state with the waveform bar at the bottom]*
+*[Trigger recording with ⌃Space]*
 
-"When recording is active, a floating bar appears at the bottom of the panel. It has three elements: a pulsing 'Listening' label on the left, an animated waveform in the centre, and cancel/confirm buttons on either end.
+"Control-Space from anywhere on your desktop starts recording. No clicking, no focus switching, no opening an app. The pill morphs directly into the full panel and you're live.
 
-A few specific decisions here:
+Watch the transition — the pill expands using a spring animation, not a linear ease. The border-radius and dimensions change simultaneously, so it reads as the pill breathing open rather than a box appearing. I used spring physics specifically because this app operates close to your cursor. When something moves right next to where you're looking, motion quality matters more than it would inside a normal window.
 
-The waveform bars respond to actual mic input level in real time — I'm using the Web Audio API to sample frequency data on every animation frame and map it to the opacity of the blob elements. So if you speak louder the waveform gets more active, if the room is silent it goes still. This makes it feel genuinely reactive rather than just decorative.
-
-The 'Listening' label pulses — it fades between 40% and full opacity over 1.8 seconds. It's subtle. I deliberately avoided putting a 'Listening' label anywhere else on screen because with the waveform already animated and the label already pulsing, a third animation would have been competing noise.
-
-The X button on the left discards the recording entirely — no audio gets sent to Whisper, the panel goes back to showing your previous notes unchanged. The checkmark on the right commits it. This gives users an explicit opt-out at any moment without losing prior work."
+Once you're recording, you see a live waveform at the bottom. Those bars are responding to your actual microphone input in real time — I'm sampling frequency data from the Web Audio API on every animation frame. If you speak louder, the waveform gets more active. If the room goes quiet, it settles. It's not decorative — it's giving you genuine feedback that the mic is working."
 
 ---
 
-## 6. Transcription — Two-layer approach
+## 4. Transcription — Two-layer approach
 
-*[Stop recording, show the transcribing spinner, then show the result]*
+*[Speak a sentence, then stop recording with the checkmark]*
 
-"When you hit the checkmark, the audio blob gets sent to OpenAI Whisper for transcription. I'm using two sources simultaneously: the browser's built-in SpeechRecognition API for a live visual preview while you're speaking, and Whisper for the final, accurate result.
+"I'm using two transcription sources simultaneously. The browser's built-in Speech Recognition API gives a live visual preview as you speak — you can see words appearing in real time. Then when you stop, the audio goes to OpenAI Whisper for the final, accurate result.
 
-The reason for both: SpeechRecognition is fast but unreliable — it struggles with accents, background noise, and anything that isn't clearly-phrased English. Whisper is accurate but has latency. So during recording the user sees live text building up as they speak, which keeps the interaction feeling responsive, and then on commit the real Whisper transcript replaces it.
+The reason for both: Speech Recognition is fast but unreliable — it struggles with accents, filler words, anything complex. Whisper is accurate but has latency. So the live preview keeps the interaction feeling responsive, and the final Whisper result replaces it with clean text.
 
-During the transcribing state there's a small spinner in the recording bar. I kept it minimal — a 14px spinning ring in the accent colour — rather than a full loading overlay, because the feed behind it is still readable and I didn't want to occlude content unnecessarily."
-
----
-
-## 7. New entry highlight — Orientation cue
-
-*[Show a freshly transcribed entry at the top of the feed]*
-
-"When a new transcript appears in the feed, that row briefly shows a light grey background that fades away over about five seconds. It's a subtle animation — the background just eases to transparent.
-
-The rationale is spatial orientation. The feed is ordered oldest-to-newest with the newest entry at the bottom, which means after a transcription completes, your eye has to find where the new content appeared. The highlight removes that cognitive search — it's saying 'here's the new thing' without being disruptive. After five seconds it's gone and the feed looks uniform again."
+I also built in silent audio detection. Whisper has a well-known tendency to hallucinate short phrases — 'thank you', 'okay', 'hmm' — when it receives silence or near-silent audio. I maintain a set of these hallucinations and filter them before anything gets added to the feed. No one needs a history full of ghost transcripts."
 
 ---
 
-## 8. The notes feed — Design language
+## 5. The notes feed — Information density
 
 *[Show the feed with a few entries]*
 
-"The output panel uses a design language I'd describe as Linear-influenced: Inter as the typeface, a tight monochromatic token system, minimal chrome, no decorative elements. The heading 'Voice notes' is semibold at 17px with tight tracking. Timestamps are 12px in a muted colour. Entry text is 14px at 1.45 line height.
+"The output panel is where you spend most of your time. I designed it around Linear's approach — maximum information density at minimum visual noise.
 
-I removed divider lines between entries. Whitespace is doing that job instead — each entry has 11px of vertical padding and the visual separation is just the gap, not a rule. Borders add visual weight; removing them makes the list feel lighter and more readable.
+Timestamps and bucket labels — Today, Yesterday, Earlier — give you temporal context without cluttering the entry. I removed divider lines between items and let whitespace do that job instead. Borders add visual weight. Removing them makes the list feel lighter and faster to scan.
 
-The brief specifically said 'inspired by Linear' — so I leaned into Linear's approach of maximum information density at minimum visual noise. Every pixel has to earn its presence."
+The typography is Inter — 14px for body text, 12px for timestamps, semibold at 17px for the header. Every size is intentional. The hierarchy should be immediately legible without you having to think about it.
 
----
-
-## 9. Actions per entry — Refine, Copy, Restore
-
-*[Hover over an entry to show the action buttons]*
-
-"Each entry has actions that appear next to the timestamp. For the latest entry: Refine, Copy, and conditionally Restore. For past entries: the same set.
-
-**Refine** sends the note to GPT and gets back a cleaned version. Instead of just replacing the text, I render the suggestions as a tracked diff — additions highlighted in one colour, deletions struck through in another, directly in the note body. This way the user can see exactly what the AI wants to change before accepting it. You can click any suggested addition to accept just that word, or edit the tracked note directly, or hit Restore to revert to the original.
-
-The reason for the diff view rather than a straight replacement: these are voice transcripts, so 'corrections' might occasionally be wrong. The AI might mishear what you meant to keep. Showing the change as a diff rather than a fait accompli gives the user control without adding extra steps for the common case.
-
-**Copy** copies the note to clipboard. If you're in the tracked diff view, it copies the accepted text — deletions stripped, additions kept as plain text. When you click it, the icon swaps to a checkmark and the label changes from 'Copy' to 'Copied' for 900ms. Small feedback, but it closes the loop — the user knows the action fired.
-
-**Restore** only appears after you've run Refine. It takes you back to the raw transcript. One tap, no confirmation modal."
+All transcripts are read-only. You can't accidentally edit them by clicking. The only editable surface is the tracked-changes diff during Refine mode, which I'll show shortly. This was a deliberate decision — your captured words are a record, not a scratch pad."
 
 ---
 
-## 10. Checklist mode — Spoken to-do lists
+## 6. Action buttons — Icon-only with purpose
 
-*[Demo: speak a list of tasks, then trigger checklist format]*
+*[Hover over an entry to reveal the action buttons]*
 
-"One of the sample use cases in the brief was speaking a to-do list. I implemented a checklist mode — after transcribing, if you toggle to checklist view, the raw text gets sent to GPT to be reformatted as structured tasks.
+"When you hover an entry, four actions appear: Refine, Tidy, Copy, and Move to. They're icon-only — no labels — because at this scale, labels add noise. Hovering any icon shows a tooltip with the name and a short description. The tooltip delay is 500ms — long enough that it doesn't flash on accidental mouseovers, short enough that it's useful when you actually pause.
 
-The items then render as an actual interactive checklist — you can check things off, the label gets a strikethrough, the colour shifts to muted. Each item animates in with a staggered delay, 90ms apart, which gives the list a satisfying cascade effect rather than everything appearing at once.
+**Tidy** is a silent, one-tap cleanup. It sends the transcript to GPT and applies the cleaned version directly — no review, no diff. It's for obvious cleanup: punctuation, capitalisation, removing filler words. You know what the AI is going to fix, so you don't need to review it.
 
-If you start another recording while in checklist mode, the existing items stay visible at reduced opacity while new audio comes in, and after transcription the combined text gets re-formatted as tasks. The 'Adding more…' label appears between the existing list and the live preview to signal what's happening."
+**Refine** is for when you want control. It sends the transcript to GPT and renders the suggestions as a tracked diff — additions in one colour, deletions struck through. You can accept individual suggestions by clicking them, or edit the text directly. This matters because AI cleanup can occasionally overcorrect. The diff gives you visibility before anything changes.
 
----
+**Copy** copies to clipboard. The icon swaps to a checkmark and holds for a moment — small feedback, but it closes the loop. You know the action fired.
 
-## 11. Inline editing — Click to expand and correct
-
-*[Click a past entry text to expand it for editing]*
-
-"Past entries are clamped to three lines by default. If an entry is longer, an ellipsis clips it, and clicking the text expands it accordion-style. This keeps the feed scannable without permanently truncating content.
-
-Once expanded, the text becomes directly editable — it's a contentEditable div that saves on blur. This handles the brief's requirement for quick corrections to speech-to-text mistakes. You don't need to enter a separate 'edit mode' or tap a pencil icon — clicking the text just makes it editable. Pressing Escape or clicking away commits the change."
+**Move to** is the routing action. I'll demo that separately."
 
 ---
 
-## 12. Bulk delete — Selection mode
+## 7. The left rail — Always-present navigation
 
-*[Tap the trash icon, show selection mode, delete some entries]*
+*[Point at the left rail icons]*
 
-"The trash icon in the header enters selection mode. Each entry gets a checkbox in the left margin and the header swaps its controls for 'Cancel'. At the bottom of the panel, a sticky action bar shows a count of selected items and a Delete button.
+"The left rail is always visible — Notes, Tasks, Ideas, Reminders. Four icons, no labels. Labels appear as tooltips on hover.
 
-This pattern — enter selection, select, confirm at bottom — follows established mobile conventions for multi-select. It's more forgiving than a per-row delete button that's always one misclick away from losing a note, and it supports bulk operations naturally."
+I made a specific styling decision here: the unselected state is just the icon, no background. The selected state gets a light grey background — the same token used for hover states throughout the app. No purple, no accent colour, no heavy outline. The selected state should be clear but not loud. If the selected state competed with the content, you'd always be drawn to the nav instead of the notes.
 
----
-
-## 13. Continue from note — ⌃Space in output state
-
-*[Show the output panel, then hit ⌃Space to start a second recording]*
-
-"Here's a flow that I think demonstrates how the keyboard shortcut changes the experience. If you're looking at your notes and hit ⌃Space again, it doesn't create a new note from scratch — it starts a recording that will *append* to the current note.
-
-This is the 'thinking in fragments' use case. You dictate something, realise you have more to add, hit ⌃Space without thinking, keep talking. The second recording gets merged at the end of the first with a single space. It's seamless."
+This rail stays visible even during selection mode. Earlier in the design, I had it disappearing when you entered selection mode — that was a mistake, it was disorienting. The rail is permanent wayfinding. It should always be there."
 
 ---
 
-## 14. Dark mode
+## 8. Move to — Routing thoughts into the right bucket
 
-*[Toggle dark/light mode with the moon/sun icon]*
+*[Click the Move to icon, select Tasks]*
 
-"The dark/light toggle is in the header alongside the other chrome controls. The preference is persisted to localStorage and applied as a CSS class on the root element rather than relying on system `prefers-color-scheme` — this keeps the pill appearance consistent regardless of system settings.
+"The Move to action is where the real value of the app lives. A voice note is raw material. The Move to flow is how you process it into something structured.
 
-The dark mode palette uses `#111111` for the canvas and `#191919` for surfaces, with white at 10.6% opacity for borders. This follows the same token structure as the light mode so every component adapts without special-casing. I kept the colour system entirely monochromatic except for the accent — a single blue — used only for the AI-suggested additions and spinner rings."
+When you click Move to, you get a three-option popover: Tasks, Ideas, or Reminders. Choosing one sends the transcript to GPT, which extracts structured items from it. That extraction shows up in the review modal.
 
----
+The modal header follows an iOS sheet pattern — title and source text on the left, Cancel and the confirm action on the right as text buttons. No X button, no footer bar. This hierarchy feels familiar and immediate — it's the same pattern you use in Calendar, in Reminders, in most native iOS sheets. Familiarity reduces cognitive load.
 
-## 15. Icon system
-
-*[Point out a few icons across the UI]*
-
-"All icons are from Lucide React at a stroke weight of 1.65. This specific weight is thinner than the default 2.0 and gives the icons a refined, editorial quality that matches the rest of the typographic palette. Heavier strokes would have felt too heavy against the 14px text.
-
-I created thin wrapper components for each icon — MicIcon, CopyIcon, TrashIcon, etc. — that all share a constant `SW = 1.65` stroke weight. This means the visual weight is locked across every icon in the app regardless of which icon is used where."
+The background overlay stays within the app boundary. I spent time on this — if you use a fixed-position overlay portaled to the document body, it bleeds outside the app window. Instead the modal portals to the shell element using absolute positioning, so the overlay is always contained. The app never bleeds outside itself."
 
 ---
 
-## 16. What I'd add with more time
+## 9. The Tasks panel — Linear-inspired status system
 
-"If I had more time I'd want to work on a few things:
+*[Navigate to Tasks panel, show the task list]*
 
-The onboarding moment — right now if you open the app fresh it says 'No captures yet.' I'd want a more inviting empty state that explains the ⌃Space shortcut immediately.
+"The Tasks panel is where I drew most heavily on Linear's design language.
 
-Search — once the feed has more than a handful of entries, finding something specific requires scrolling. A simple text filter would be high value.
+Tasks are grouped into three status categories: In Progress, To Do — which I've labelled 'Not Started' — and Done. Only sections with tasks are shown. If you have no done tasks, that section doesn't appear. The grouping is automatic based on each task's status.
 
-Tagging or folders — light organisation for people who capture a lot.
+Each task has a status indicator — the circle on the left. An empty grey ring is Not Started. A half-filled accent ring is In Progress. A filled accent circle with a check is Done. These are all CSS — the in-progress state uses a conic gradient.
 
-And on the AI side, a more conversational interaction where you could follow up on a note — 'turn this into a bullet list', 'make this shorter' — rather than just a single-pass Refine operation.
+Clicking the status circle opens a small floating picker. I portal this to document body with a fixed position calculated from getBoundingClientRect, which means it escapes any overflow clipping — including the app's own container. And it's smart about direction: if there's not enough space below the button, it opens upward. You can see that working correctly near the bottom of the panel.
 
-But those are second-layer features. The core — capture, transcribe, correct, copy — I'm happy with how it works and how it feels."
+Next to the status icon is a small text label — Not Started, In Progress, Done. This makes the current state legible at a glance without requiring you to read the circle's visual state. The In Progress label appears in the accent colour; the others are muted."
 
 ---
 
-## Closing
+## 10. Move to Tasks — Setting status before adding
 
-"The brief was to build something small but polished. I tried to treat every interaction as if it mattered — the spring on the phase transition, the waveform responding to your voice, the diff showing you exactly what the AI wants to change. The goal was a tool you'd actually want to keep open in the corner of your screen. Thanks for watching."
+*[Show the Move to Tasks modal with the status picker on each draft task]*
+
+"When you move a note to Tasks, each extracted draft has a status selector. It defaults to Not Started. You can change it before adding — if you're moving a note that says 'start the investor update tonight', you might want to immediately mark that as In Progress.
+
+This means by the time tasks land in your Tasks panel, they already have the right status. You're not doing a second pass to categorise what you just added."
+
+---
+
+## 11. The moved-to badge — Provenance and re-routing
+
+*[Show a note that has been moved, click the badge]*
+
+"After moving a note to a folder, the Move to button is replaced by a small badge showing which folder it went to — Tasks, Ideas, or Reminders. This is provenance — you know at a glance that this note has already been processed.
+
+The badge is clickable. Clicking it opens a contextual dropdown with two options: remove it from the current folder, or move it to one of the other two. The re-route goes through the full review modal. So if you moved something to Tasks and then realised it was actually an idea, two taps and it's in Ideas."
+
+---
+
+## 12. Toast acknowledgements — Closing every loop
+
+*[Perform a few actions — toggle a task, delete a note, add a task]*
+
+"Every mutating action in the app fires a toast. Add a task — 'Task added'. Toggle status — 'In Progress' or 'Task done'. Delete notes — 'Deleted 2 notes'. Move a note — '3 added to Tasks'. Remove from a folder — 'Removed from Ideas'.
+
+I'm showing these because the brief evaluated usability — and feedback is usability. Without acknowledgements, users are left wondering if the action worked. Every state change gets a confirmation. The toasts are brief — 1.8 seconds — and they appear at the bottom of the panel where they don't obscure content."
+
+---
+
+## 13. Bulk delete — Selection mode
+
+*[Tap the trash icon, select a few entries, delete]*
+
+"The trash icon enters selection mode. The left rail stays visible — only the action buttons per entry are hidden. Checkboxes appear in the left margin and the panel header swaps to show a Cancel button.
+
+At the bottom, a sticky bar shows a count and a Delete button. The count updates live as you select. The Delete button is muted until at least one item is selected.
+
+I chose this pattern — enter selection, select items, confirm at bottom — over per-row delete buttons because voice notes are things you want to keep. A per-row button that's always one misclick away from destroying a note felt wrong for this content type. This pattern requires intent."
+
+---
+
+## 14. Design system — The token approach
+
+*[Show a few different UI elements]*
+
+"Everything in the UI draws from a CSS variable token system. Background, surface, border, text, muted text, icon default, icon active, accent — all defined once and consumed everywhere. Dark mode is a second set of the same tokens swapped at the root level.
+
+The accent colour is used exactly once in the functional palette — for selected states, AI suggestions, and status indicators. Nowhere else. This means the accent always signals something actionable or AI-generated. When you see that colour, it means the system is trying to tell you something.
+
+Icons are all Lucide React at stroke weight 1.65, thinner than the default 2.0. This specific weight gives them an editorial, refined quality that holds up at small sizes. All icons share a constant stroke weight token so nothing ever looks heavier or lighter than anything else."
+
+---
+
+## 15. What I would build next
+
+"A few things I'd want to add with more time:
+
+The Ideas panel is currently a form — title plus body textarea. That's not right for how ideas actually emerge from voice. An idea is a raw insight, not a structured document. I'd redesign it as flowing text — a bold first line that becomes the title automatically, body text below it, and an optional tag for routing: Product, Strategy, Content. Something closer to how a founder or executive actually thinks rather than how a form designer thinks.
+
+Search across the feed is the other obvious gap. Once you have more than a week of captures, finding anything requires scrolling. A simple text filter would be high value.
+
+And I'd add a 'next action' field to tasks — a single line below the task text that says what the actual next physical thing to do is. Linear has this and it's the difference between a task that sits there and a task that gets done.
+
+But the core loop — capture, transcribe, process, organise — is solid. Thanks for watching."
+
+---
+
+*Total estimated time: 6–8 minutes*
