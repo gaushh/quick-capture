@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -232,23 +233,19 @@ function acceptTrackedAdditionAtPointer(root: HTMLElement, target: EventTarget |
   return true
 }
 
-/** e.g. `8:39 AM · Today` (matches transcript list design). */
+/** e.g. `8:39 AM` — bucket (Today/Yesterday/Earlier) is shown as a section header above the row. */
 function formatFeedEntryStamp(at: number) {
   try {
-    const bucket = bucketForTimestamp(at)
-    const time = formatHistoryTime(at)
-    return `${time} · ${BUCKET_LABEL[bucket]}`
+    return formatHistoryTime(at)
   } catch {
     return ``
   }
 }
 
-/** Latest row: show `now · Today` briefly, then calendar-style stamp. */
+/** Latest row: show `now` briefly, then time. */
 function formatLiveFeedStamp(at: number, nowMs: number) {
   const age = nowMs - at
-  const bucket = bucketForTimestamp(at)
-  const dayPart = BUCKET_LABEL[bucket]
-  if (age < 75_000) return `now · ${dayPart}`
+  if (age < 75_000) return `now`
   return formatFeedEntryStamp(at)
 }
 
@@ -3327,6 +3324,9 @@ export function QuickCapture() {
 
                         {filteredHistoryRows.map((row, idx) => {
                           const isLatest = idx === 0
+                          const bucket = bucketForTimestamp(row.at)
+                          const prevBucket = idx > 0 ? bucketForTimestamp(filteredHistoryRows[idx - 1].at) : null
+                          const showBucketHeader = bucket !== prevBucket
                           const stamp =
                             isLatest && noteCapturedAt !== null ?
                               liveFeedStamp || formatFeedEntryStamp(row.at)
@@ -3353,8 +3353,11 @@ export function QuickCapture() {
                           const cleanDisabled = isLatest ? cleanDisabledLatest : cleanDisabledPast
 
                           return (
+                            <Fragment key={row.id}>
+                              {showBucketHeader && (
+                                <div className="qc-feed-bucket-header">{BUCKET_LABEL[bucket]}</div>
+                              )}
                             <div
-                              key={row.id}
                               className={[
                                 isLatest ? `qc-feed-entry qc-feed-entry--current` : `qc-feed-entry`,
                                 isSelectionMode ? `qc-feed-entry--selectable` : ``,
@@ -3620,6 +3623,7 @@ export function QuickCapture() {
                                 />
                               }
                             </div>
+                            </Fragment>
                           )
                         })}
 
