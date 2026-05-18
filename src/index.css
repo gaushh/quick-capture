@@ -2700,7 +2700,7 @@
   .qc-task-filter-pills {
     display: flex;
     gap: 8px;
-    padding: 0 11px 8px;
+    padding: 0 12px 8px;
     flex-wrap: wrap;
   }
 
@@ -3436,7 +3436,7 @@
   .qc-ideas-filter-pills {
     display: flex;
     gap: 8px;
-    padding: 0 11px 8px;
+    padding: 0 12px 8px;
     flex-wrap: wrap;
   }
 
@@ -3453,7 +3453,7 @@
   .qc-reminder-filter-pills {
     display: flex;
     gap: 8px;
-    padding: 0 11px 8px;
+    padding: 0 12px 8px;
     flex-wrap: wrap;
   }
 
