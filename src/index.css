@@ -2492,7 +2492,13 @@
   }
 
   .qc-reminder-item-meta {
-    display: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--qc-text-secondary);
   }
 
   .qc-reminder-meta-icon {
@@ -2504,15 +2510,16 @@
 
   .qc-reminder-input-date,
   .qc-reminder-input-time {
-    border: none;
     background: transparent;
     color: var(--qc-text-secondary);
     font: inherit;
-    font-size: 12px;
-    padding: 2px 0;
+    font-size: 13px;
+    padding: 0;
     outline: none;
-    cursor: pointer;
+    cursor: default;
     min-width: 0;
+    pointer-events: none;
+    border: none;
   }
 
   .qc-reminder-input-date::-webkit-calendar-picker-indicator,
@@ -2521,25 +2528,11 @@
   }
 
   .qc-reminder-input-date {
-    width: 110px;
+    width: auto;
   }
 
   .qc-reminder-input-time {
-    width: 75px;
-  }
-
-  .qc-reminder-input-date:hover,
-  .qc-reminder-input-time:hover {
-    background: var(--qc-bg-hover);
-    border-radius: var(--qc-radius-sm);
-    color: var(--qc-text-primary);
-  }
-
-  .qc-reminder-input-date:focus,
-  .qc-reminder-input-time:focus {
-    background: color-mix(in srgb, var(--qc-accent) 8%, transparent);
-    border-radius: var(--qc-radius-sm);
-    color: var(--qc-text-primary);
+    width: auto;
   }
 
   .qc-reminder-remove {
