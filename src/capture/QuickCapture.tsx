@@ -2767,7 +2767,7 @@ export function QuickCapture() {
 
       const polished = `${outcome.cleanedText ?? ``}`.trim()
       if (!polished.length || polished === trimmed) {
-        revealAiBanner(`Already tidy — no changes needed.`)
+        showFeedAcknowledgement(`Already tidy — no changes needed.`)
         return
       }
 
