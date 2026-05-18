@@ -1136,12 +1136,17 @@ function ReminderQuickPick({
   const [inputValue, setInputValue] = useState(``)
   const presets = useMemo(() => buildReminderPresets(), [])
 
-  function handleInputChange(value: string) {
-    setInputValue(value)
+  const matchesPreset = presets.some(p => p.id !== `someday` && p.dateText === dateText && p.timeText === timeText)
+  const isCustomDate = !!dateText && !matchesPreset
+
+  function commitParse(value: string) {
     const parsed = parseNaturalLanguageDateTime(value)
     if (parsed) {
       onPick(parsed.dateText, parsed.timeText)
+      setInputValue(``)
+      return true
     }
+    return false
   }
 
   return (
@@ -1169,23 +1174,31 @@ function ReminderQuickPick({
             </button>
           )
         })}
+        {isCustomDate && (
+          <button
+            type="button"
+            className="qc-reminder-preset qc-reminder-preset--selected"
+            onClick={() => onPick(``, ``)}
+            title="Clear custom date"
+          >
+            <span className="qc-reminder-preset__label">custom</span>
+            <span className="qc-reminder-preset__date">{formatPresetDate(dateText, timeText)}</span>
+          </button>
+        )}
       </div>
       <input
         type="text"
         className="qc-reminder-natural-input"
         placeholder="Or type: tomorrow 3pm, friday 9am, may 30 4pm..."
         value={inputValue}
-        onChange={e => handleInputChange(e.currentTarget.value)}
+        onChange={e => setInputValue(e.currentTarget.value)}
         onKeyDown={e => {
           if (e.key === `Enter`) {
             e.preventDefault()
-            const parsed = parseNaturalLanguageDateTime(inputValue)
-            if (parsed) {
-              onPick(parsed.dateText, parsed.timeText)
-              setInputValue(``)
-            }
+            commitParse(inputValue)
           }
         }}
+        onBlur={() => { if (inputValue) commitParse(inputValue) }}
         aria-label="Type date and time"
       />
     </div>
