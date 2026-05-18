@@ -2462,15 +2462,11 @@
   .qc-reminder-item-meta {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 12px;
     flex-wrap: nowrap;
     margin-top: 2px;
     font-size: 12px;
     color: var(--qc-text-secondary);
-  }
-
-  .qc-reminder-item-meta::after {
-    content: ', ';
   }
 
   .qc-reminder-meta-icon {
