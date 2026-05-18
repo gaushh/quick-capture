@@ -180,10 +180,7 @@
 
 @layer utilities {
   .scratchpad-shadow {
-    box-shadow:
-      0 4px 6px rgba(0, 0, 0, 0.07),
-      0 10px 20px rgba(0, 0, 0, 0.08),
-      0 20px 40px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--qc-shadow-md);
     /* background is set via inline style on the shell (grey for card, white for pill) */
   }
 
