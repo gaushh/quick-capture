@@ -1532,11 +1532,11 @@
   }
 
   .qc-move-popover__remove {
-    color: var(--qc-text-secondary) !important;
+    color: #ef4444 !important;
   }
 
   .qc-move-popover__remove:hover {
-    color: var(--qc-text-primary) !important;
+    color: #dc2626 !important;
   }
 
   @keyframes qc-pop-in {
@@ -2642,11 +2642,28 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: text;
+    transition: background 120ms ease;
+  }
+
+  .qc-task-text:hover {
+    background: var(--qc-bg-hover);
+  }
+
+  .qc-task-text:focus {
+    background: var(--qc-bg-hover);
+    outline: 1px solid var(--qc-accent);
+    outline-offset: 1px;
   }
 
   .qc-task-row--done .qc-task-text {
     text-decoration: line-through;
     color: var(--qc-text-muted);
+  }
+
+  .qc-task-row--done .qc-task-text:hover,
+  .qc-task-row--done .qc-task-text:focus {
+    background: transparent;
   }
 
   .qc-task-remove {
