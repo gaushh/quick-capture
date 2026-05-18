@@ -65,16 +65,16 @@
 
     /* Text Colors */
     --qc-text-primary: #111827;
-    --qc-text-secondary: #6B7280;
+    --qc-text-secondary: #5A6375;
     --qc-text-tertiary: #9CA3AF;
-    --qc-text-muted: #D1D5DB;
+    --qc-text-muted: #9CA3AF;
 
     /* Borders */
     --qc-border: #E5E7EB;
     --qc-border-strong: #D1D5DB;
 
     /* Icons */
-    --qc-icon-default: #6B7280;
+    --qc-icon-default: #5A6375;
     --qc-icon-active: #111827;
 
     /* Accent Color (Blue) */
@@ -122,7 +122,7 @@
     --qc-text-primary: #F8FAFC;
     --qc-text-secondary: #CBD5E1;
     --qc-text-tertiary: #94A3B8;
-    --qc-text-muted: #64748B;
+    --qc-text-muted: #94A3B8;
 
     --qc-border: #334155;
     --qc-border-strong: #475569;
