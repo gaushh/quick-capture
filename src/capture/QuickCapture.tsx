@@ -3018,10 +3018,8 @@ export function QuickCapture() {
     reminders: historyRows.filter(row => row.movedTo === 'reminders').length,
   }
 
-  // Filter history rows based on selected destination
-  const filteredHistoryRows = selectedMoveDestination
-    ? historyRows.filter(row => row.movedTo === selectedMoveDestination)
-    : historyRows
+  // All Notes shows all rows without filtering
+  const filteredHistoryRows = historyRows
 
   return (
     <div
@@ -3223,45 +3221,6 @@ export function QuickCapture() {
                         <div>
                           <div className="qc-derived-panel__title">All notes <span className="qc-pill-count">({historyRows.length})</span></div>
                         </div>
-                      </div>
-
-                      <div className="qc-task-filter-pills">
-                        <button
-                          key="all"
-                          type="button"
-                          className={`qc-status-pill${selectedMoveDestination === null ? ` qc-status-pill--selected` : ``}`}
-                          onClick={() => setSelectedMoveDestination(null)}
-                          aria-pressed={selectedMoveDestination === null}
-                        >
-                          All <span className="qc-pill-count">({historyRows.length})</span>
-                        </button>
-                        <button
-                          key="tasks"
-                          type="button"
-                          className={`qc-status-pill${selectedMoveDestination === 'tasks' ? ` qc-status-pill--selected` : ``}`}
-                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'tasks' ? null : 'tasks')}
-                          aria-pressed={selectedMoveDestination === 'tasks'}
-                        >
-                          Tasks <span className="qc-pill-count">({destinationCounts.tasks})</span>
-                        </button>
-                        <button
-                          key="ideas"
-                          type="button"
-                          className={`qc-status-pill${selectedMoveDestination === 'ideas' ? ` qc-status-pill--selected` : ``}`}
-                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'ideas' ? null : 'ideas')}
-                          aria-pressed={selectedMoveDestination === 'ideas'}
-                        >
-                          Ideas <span className="qc-pill-count">({destinationCounts.ideas})</span>
-                        </button>
-                        <button
-                          key="reminders"
-                          type="button"
-                          className={`qc-status-pill${selectedMoveDestination === 'reminders' ? ` qc-status-pill--selected` : ``}`}
-                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'reminders' ? null : 'reminders')}
-                          aria-pressed={selectedMoveDestination === 'reminders'}
-                        >
-                          Reminders <span className="qc-pill-count">({destinationCounts.reminders})</span>
-                        </button>
                       </div>
 
                       <div
