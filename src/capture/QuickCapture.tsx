@@ -937,7 +937,6 @@ function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPane
                     onBlur={e => onEdit(reminder.id, { text: e.currentTarget.value })}
                     aria-label="Reminder"
                   />
-                  {reminder.sourceText && <p className="qc-derived-panel__source">{reminder.sourceText}</p>}
                   <div className="qc-reminder-item-meta">
                     <input
                       key={`${reminder.id}-date-${reminder.dateText ?? ``}`}
