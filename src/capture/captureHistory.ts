@@ -9,11 +9,23 @@ export type CaptureDestinationMode = `notes` | `tasks` | `ideas` | `reminders`
 export type CaptureDerivedTask = CaptureTaskItem & {
   sourceNoteId: string | null
   sourceText: string
+  status: TaskStatus
   createdAt: number
   updatedAt: number
 }
 
 export type CaptureStandaloneTask = CaptureDerivedTask
+
+export type IdeaTag = `product` | `strategy` | `content` | `other`
+
+export const IDEA_TAGS: IdeaTag[] = [`product`, `strategy`, `content`, `other`]
+
+export const IDEA_TAG_LABEL: Record<IdeaTag, string> = {
+  product: `Product`,
+  strategy: `Strategy`,
+  content: `Content`,
+  other: `Other`,
+}
 
 export type CaptureDerivedIdea = {
   id: string
@@ -21,6 +33,7 @@ export type CaptureDerivedIdea = {
   sourceText: string
   title?: string
   text: string
+  tag?: IdeaTag
   createdAt: number
   updatedAt: number
 }
@@ -52,12 +65,17 @@ export type CaptureTaskState = {
   sourceText: string
 }
 
+export type MoveDestination = `tasks` | `ideas` | `reminders`
+
+export type TaskStatus = `todo` | `in_progress` | `done`
+
 export type CaptureHistoryRow = {
   id: string
   at: number
   text: string
   silent: boolean
   tasks?: CaptureTaskState
+  movedTo?: MoveDestination
 }
 
 const STORAGE_KEY = `quick-capture-transcript-history`
@@ -172,12 +190,19 @@ function parseDerivedTask(item: unknown): CaptureDerivedTask | null {
     rec.sourceNoteId.trim()
   : null
 
+  const statusRaw = rec.status
+  const status: TaskStatus =
+    statusRaw === `todo` || statusRaw === `in_progress` || statusRaw === `done`
+      ? statusRaw
+      : Boolean(rec.checked) ? `done` : `todo`
+
   return {
     id,
     text,
-    checked: Boolean(rec.checked),
+    checked: status === `done`,
     sourceNoteId,
     sourceText: typeof rec.sourceText === `string` ? rec.sourceText : ``,
+    status,
     createdAt,
     updatedAt,
   }
@@ -198,6 +223,11 @@ function parseDerivedIdea(item: unknown): CaptureDerivedIdea | null {
     rec.sourceNoteId.trim()
   : null
   const title = typeof rec.title === `string` && rec.title.trim().length ? rec.title.trim() : undefined
+  const tagRaw = typeof rec.tag === `string` ? rec.tag.trim().toLowerCase() : ``
+  const tag: IdeaTag | undefined =
+    tagRaw === `product` || tagRaw === `strategy` || tagRaw === `content` || tagRaw === `other`
+      ? tagRaw
+      : undefined
 
   return {
     id,
@@ -205,6 +235,7 @@ function parseDerivedIdea(item: unknown): CaptureDerivedIdea | null {
     sourceText: typeof rec.sourceText === `string` ? rec.sourceText : ``,
     ...(title ? { title } : {}),
     text,
+    ...(tag ? { tag } : {}),
     createdAt,
     updatedAt,
   }
@@ -371,6 +402,11 @@ export function loadCaptureHistory(): CaptureHistoryRow[] {
           const text = typeof r.text === `string` ? r.text : ``
           const silent = Boolean(r.silent) || classifySilentTranscript(text)
           const tasks = parseTaskState(r.tasks)
+          const movedToRaw = r.movedTo
+          const movedTo: MoveDestination | undefined =
+            movedToRaw === `tasks` || movedToRaw === `ideas` || movedToRaw === `reminders` ?
+              movedToRaw
+            : undefined
 
           if (!id.length || !at || silent) return null
 
@@ -380,6 +416,7 @@ export function loadCaptureHistory(): CaptureHistoryRow[] {
             text,
             silent: false,
             ...(tasks ? { tasks } : {}),
+            ...(movedTo ? { movedTo } : {}),
           }
 
           return row
@@ -403,10 +440,42 @@ export function saveCaptureHistory(rows: CaptureHistoryRow[]) {
 const SILENT_HINTS =
   /\b(no speech detected|silent|recording was silent|no audible speech|transcription failed)/i
 
+/**
+ * Whisper commonly hallucinates these short phrases when it receives silence or
+ * near-silent audio. Matched case-insensitively against the full trimmed string.
+ */
+const WHISPER_HALLUCINATIONS = new Set([
+  `thank you`,
+  `thank you.`,
+  `thanks`,
+  `thanks.`,
+  `thanks for watching`,
+  `thanks for watching.`,
+  `bye`,
+  `bye.`,
+  `bye-bye`,
+  `bye-bye.`,
+  `you`,
+  `you.`,
+  `.`,
+  `...`,
+  `you know`,
+  `okay`,
+  `okay.`,
+  `ok`,
+  `ok.`,
+  `hmm`,
+  `hmm.`,
+  `uh`,
+  `uh.`,
+  `um`,
+  `um.`,
+])
+
 export function classifySilentTranscript(text: string) {
   const t = text.trim()
 
-  return !t.length || SILENT_HINTS.test(t)
+  return !t.length || SILENT_HINTS.test(t) || WHISPER_HALLUCINATIONS.has(t.toLowerCase())
 }
 
 export function updateCaptureHistoryById(id: string, text: string) {
@@ -430,6 +499,25 @@ export function updateCaptureHistoryTasksById(
     row.id === id ? { ...row, ...(tasks ? { tasks } : { tasks: undefined }) } : row,
   )
 
+  saveCaptureHistory(next)
+  return next
+}
+
+export function updateCaptureHistoryMovedTo(id: string, movedTo: MoveDestination) {
+  const prev = loadCaptureHistory()
+  const next = prev.map(row => row.id === id ? { ...row, movedTo } : row)
+  saveCaptureHistory(next)
+  return next
+}
+
+export function clearCaptureHistoryMovedTo(id: string) {
+  const prev = loadCaptureHistory()
+  const next = prev.map(row => {
+    if (row.id !== id) return row
+    const updated = { ...row }
+    delete updated.movedTo
+    return updated
+  })
   saveCaptureHistory(next)
   return next
 }

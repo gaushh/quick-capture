@@ -13,9 +13,12 @@ export type ExtractTaskDraft = {
   text: string
 }
 
+export type ExtractIdeaTag = 'product' | 'strategy' | 'content' | 'other'
+
 export type ExtractIdeaDraft = {
   title?: string
   text: string
+  tag?: ExtractIdeaTag
 }
 
 export type ExtractReminderDraft = {

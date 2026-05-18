@@ -11,11 +11,11 @@ export type PhaseKind = 'idle' | 'recording' | 'output'
 export const WIDTH_BY_PHASE: Record<PhaseKind, number> = {
   idle:      124,   // notes | mic
   recording: 52, // recording phase uses embedded card layout — width unused for shell
-  output:    400,
+  output:    480,
 }
 
 export const HEIGHT_BY_PHASE: Record<PhaseKind, number> = {
   idle:      38,
   recording: 52,
-  output:    400,
+  output:    520,
 }

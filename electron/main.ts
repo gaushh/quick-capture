@@ -138,8 +138,8 @@ let win: BrowserWindow | null = null
 const PILL_SCREEN_MARGIN = 24
 
 /** Minimum dimensions for the expanded notes card (user-resizable). */
-const OUTPUT_MIN_WIDTH = 320
-const OUTPUT_MIN_HEIGHT = 300
+const OUTPUT_MIN_WIDTH = 360
+const OUTPUT_MIN_HEIGHT = 360
 
 /**
  * When the user manually drags a window edge, remember their preferred card size so
@@ -556,12 +556,14 @@ Rules:
 
   if (mode === 'ideas') {
     return `Extract ideas from a voice transcript.
-Respond ONLY JSON: {"ideas":[{"title":"<optional short title>","text":"<idea>"}],"summary":""}
+Respond ONLY JSON: {"ideas":[{"title":"<short headline>","text":"<idea body>","tag":"product|strategy|content|other"}],"summary":""}
 Rules:
 - Preserve the transcript language, sentiment, and personal voice.
 - Lightly tidy grammar and punctuation only when it improves readability.
 - Do not transform the idea into marketing copy, a task, or a summary.
+- Always produce a short headline ("title") — at most 8 words capturing the kernel of the idea. Do not echo the full body.
 - Split distinct ideas only when the transcript clearly contains more than one.
+- Choose ONE tag per idea: "product" for product/feature/UX ideas, "strategy" for business/growth/competitive moves, "content" for posts/talks/marketing copy, "other" if none clearly fits.
 - Return {"ideas":[]} when no idea is present.
 - Return at most 20 ideas.`
   }
@@ -632,12 +634,18 @@ async function extractDestinationViaOpenAi(
     if (mode === 'ideas') {
       const rawIdeas = Array.isArray(parsed.ideas) ? parsed.ideas : []
       const ideas = rawIdeas
-        .filter((entry): entry is { title?: string; text?: string } => !!entry && typeof entry === 'object')
+        .filter((entry): entry is { title?: string; text?: string; tag?: string } => !!entry && typeof entry === 'object')
         .map(entry => {
           const title = `${entry.title ?? ''}`.trim()
+          const tagRaw = `${entry.tag ?? ''}`.trim().toLowerCase()
+          const tag =
+            tagRaw === 'product' || tagRaw === 'strategy' || tagRaw === 'content' || tagRaw === 'other'
+              ? (tagRaw as 'product' | 'strategy' | 'content' | 'other')
+              : undefined
           return {
             ...(title ? { title } : {}),
             text: `${entry.text ?? ''}`.trim(),
+            ...(tag ? { tag } : {}),
           }
         })
         .filter(item => item.text.length)
@@ -745,13 +753,13 @@ attachWindowSizingOnce()
 attachIpcOnce()
 
 function createWindow() {
-  const initialBounds = boundsForTray(392, 480)
+  const initialBounds = boundsForTray(496, 552)
 
   win = new BrowserWindow({
     x: initialBounds.x,
     y: initialBounds.y,
-    width: 392,
-    height: 460,
+    width: 496,
+    height: 552,
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
     show: false,
@@ -842,7 +850,7 @@ if (!gotLock) {
       ]),
     )
 
-    repositionWindow(392, 460)
+    repositionWindow(496, 552)
     registerShortcuts()
 
     // Show the idle pill automatically on launch (after renderer has loaded)

@@ -18,7 +18,7 @@ declare global {
         ok: true
         mode: PillExtractDestinationMode
         tasks?: { text: string }[]
-        ideas?: { title?: string; text: string }[]
+        ideas?: { title?: string; text: string; tag?: 'product' | 'strategy' | 'content' | 'other' }[]
         reminders?: {
           text: string
           scheduledAt?: string

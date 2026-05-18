@@ -20,6 +20,7 @@ import {
   ListChecks,
   Mic,
   Minus,
+  FolderInput,
   Moon,
   MoreHorizontal,
   Sparkles,
@@ -47,12 +48,19 @@ import {
   saveCaptureHistory,
   saveCaptureDerivedItems,
   updateCaptureHistoryById,
+  updateCaptureHistoryMovedTo,
+  clearCaptureHistoryMovedTo,
+  IDEA_TAGS,
+  IDEA_TAG_LABEL,
   type CaptureDerivedIdea,
   type CaptureDerivedItems,
   type CaptureDerivedReminder,
   type CaptureDerivedTask,
   type CaptureDestinationMode,
   type CaptureHistoryRow,
+  type IdeaTag,
+  type MoveDestination,
+  type TaskStatus,
 } from './captureHistory.ts'
 import { blobToBase64, summarizeError } from './format.ts'
 import { applySuggestReplacements, applyWholeTextSuggestion } from './suggestApply.ts'
@@ -114,6 +122,7 @@ type MoveTaskDraft = {
   mode: `tasks`
   selected: boolean
   text: string
+  status: TaskStatus
 }
 
 type MoveIdeaDraft = {
@@ -122,6 +131,7 @@ type MoveIdeaDraft = {
   selected: boolean
   title: string
   text: string
+  tag?: IdeaTag
 }
 
 type MoveReminderDraft = {
@@ -332,7 +342,7 @@ function Tip({ content, children }: { content: string; children: ReactElement })
     const anchor = anchorRef.current?.firstElementChild
     if (anchor instanceof HTMLElement) {
       const captured = anchor.getBoundingClientRect()
-      timerRef.current = setTimeout(() => setRect(captured), 1000)
+      timerRef.current = setTimeout(() => setRect(captured), 500)
     }
   }
 
@@ -363,11 +373,10 @@ function Tip({ content, children }: { content: string; children: ReactElement })
 function PastEntryText({
   row,
   textClassName = `qc-feed-past-text qc-feed-body-text`,
-  editableClassName = `qc-feed-past-text qc-feed-body-text qc-feed-past-editable`,
   cleanupHtml,
   cleanupSession,
   onCleanupHtmlChange,
-  onSave,
+  onSave: _onSave,
 }: {
   row: { id: string; text: string; silent: boolean }
   textClassName?: string
@@ -377,31 +386,7 @@ function PastEntryText({
   onCleanupHtmlChange?: (html: string) => void
   onSave: (newText: string) => void
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const [clampable, setClampable] = useState(false)
-  const measureRef = useRef<HTMLParagraphElement>(null)
-  const editRef = useRef<HTMLDivElement>(null)
   const cleanupRef = useRef<HTMLDivElement>(null)
-
-  useLayoutEffect(() => {
-    const el = measureRef.current
-    if (!el || !row.text.trim()) { setClampable(false); return }
-    if (expanded) return
-    setClampable(el.scrollHeight > el.clientHeight + 2)
-  }, [row.text, expanded])
-
-  // Auto-focus editable div and move cursor to end when expanded
-  useEffect(() => {
-    if (!expanded) return
-    const el = editRef.current
-    if (!el) return
-    el.focus()
-    const range = document.createRange()
-    range.selectNodeContents(el)
-    range.collapse(false)
-    window.getSelection()?.removeAllRanges()
-    window.getSelection()?.addRange(range)
-  }, [expanded])
 
   useLayoutEffect(() => {
     const el = cleanupRef.current
@@ -409,11 +394,7 @@ function PastEntryText({
     if (el.innerHTML !== cleanupHtml) el.innerHTML = cleanupHtml
   }, [cleanupHtml, cleanupSession])
 
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    const newText = e.currentTarget.innerText
-    if (newText.trim() !== row.text.trim()) onSave(newText)
-  }
-
+  // Refine/tracked-changes mode — editable diff view only
   if (cleanupHtml !== undefined) {
     return (
       <div className="qc-feed-truncate-slot">
@@ -441,51 +422,12 @@ function PastEntryText({
     )
   }
 
+  // Plain read-only transcript
   return (
     <div className="qc-feed-truncate-slot">
-      {/* Collapsed: always apply clamp — scrollHeight vs clientHeight detects actual overflow */}
-      {!expanded && (
-        <Tip content="Click to edit">
-          <p
-            ref={measureRef}
-            className={`${textClassName} whitespace-pre-wrap qc-feed-line-clamp-3`}
-            style={{ cursor: `pointer` }}
-            onClick={(e) => { e.stopPropagation(); setExpanded(true) }}
-          >
-            {row.text}
-          </p>
-        </Tip>
-      )}
-
-      {/* Expanded: full contentEditable + optional "Show less" */}
-      {expanded && (
-        <>
-          <div
-            ref={editRef}
-            role="textbox"
-            aria-multiline={true}
-            aria-label="Note text"
-            contentEditable={!row.silent}
-            suppressContentEditableWarning={true}
-            spellCheck={true}
-            className={`${editableClassName} whitespace-pre-wrap`}
-            onBlur={handleBlur}
-            onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
-              if (e.key === `Escape`) { e.preventDefault(); e.currentTarget.blur(); setExpanded(false) }
-            }}
-            dangerouslySetInnerHTML={{ __html: row.text }}
-          />
-          {clampable && (
-            <button
-              type="button"
-              className="qc-feed-expand-link"
-              onClick={(e) => { e.stopPropagation(); setExpanded(false) }}
-            >
-              Show less
-            </button>
-          )}
-        </>
-      )}
+      <p className={`${textClassName} whitespace-pre-wrap`}>
+        {row.text}
+      </p>
     </div>
   )
 }
@@ -522,19 +464,119 @@ function DestinationRail({
   return (
     <nav className="qc-left-rail" aria-label="Thought categories">
       {items.map(item => (
-        <button
+        <Tip
           key={item.panel}
-          type="button"
-          className={`qc-left-rail__item${activePanel === item.panel ? ` qc-left-rail__item--active` : ``}`}
-          onClick={() => onSelect(item.panel)}
-          aria-pressed={activePanel === item.panel}
+          content={item.count > 0 ? `${item.label} · ${item.count}` : item.label}
         >
-          <span className="qc-left-rail__icon">{item.icon}</span>
-          <span>{item.label}</span>
-          {item.count > 0 && <span className="qc-left-rail__count">{item.count}</span>}
-        </button>
+          <button
+            type="button"
+            className={`qc-left-rail__item${activePanel === item.panel ? ` qc-left-rail__item--active` : ``}`}
+            onClick={() => onSelect(item.panel)}
+            aria-pressed={activePanel === item.panel}
+            aria-label={item.label}
+          >
+            <span className="qc-left-rail__icon">{item.icon}</span>
+          </button>
+        </Tip>
       ))}
     </nav>
+  )
+}
+
+const STATUS_ORDER: TaskStatus[] = [`in_progress`, `todo`, `done`]
+const STATUS_LABEL: Record<TaskStatus, string> = {
+  in_progress: `In Progress`,
+  todo: `Not Started`,
+  done: `Done`,
+}
+
+function TaskStatusIcon({ status }: { status: TaskStatus }) {
+  if (status === `done`) {
+    return (
+      <span className="qc-status-icon qc-status-icon--done" aria-label="Done">
+        <CheckIcon size={9} />
+      </span>
+    )
+  }
+  if (status === `in_progress`) {
+    return <span className="qc-status-icon qc-status-icon--in-progress" aria-label="In Progress" />
+  }
+  return <span className="qc-status-icon qc-status-icon--todo" aria-label="To Do" />
+}
+
+function TaskStatusPicker({
+  status,
+  onSetStatus,
+}: {
+  status: TaskStatus
+  onSetStatus: (s: TaskStatus) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, openUp: false })
+  const btnRef = useRef<HTMLButtonElement | null>(null)
+
+  const POPOVER_H = 116 // approx height of the 3-item popover
+  const POPOVER_W = 180 // conservative width incl. icon + label + padding
+  const SAFE = 8
+
+  function openPicker(e: MouseEvent) {
+    e.stopPropagation()
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - r.bottom
+      const openUp = spaceBelow < POPOVER_H + 12
+      const top = openUp ? r.top - POPOVER_H - 6 : r.bottom + 6
+      // Prefer left-align with trigger; flip to right-align if it would overflow the window.
+      const overflowsRight = r.left + POPOVER_W > window.innerWidth - SAFE
+      const left = overflowsRight
+        ? Math.max(SAFE, r.right - POPOVER_W)
+        : Math.max(SAFE, r.left)
+      setPopoverPos({ top, left, openUp })
+    }
+    setOpen(prev => !prev)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    document.addEventListener(`mousedown`, close)
+    return () => document.removeEventListener(`mousedown`, close)
+  }, [open])
+
+  return (
+    <div className="qc-status-wrap">
+      <button
+        ref={btnRef}
+        type="button"
+        className="qc-status-btn"
+        aria-label="Change status"
+        onClick={openPicker}
+      >
+        <TaskStatusIcon status={status} />
+      </button>
+      {open && createPortal(
+        <div
+          className="qc-status-popover"
+          role="menu"
+          style={{ position: `fixed`, top: popoverPos.top, left: popoverPos.left, transformOrigin: popoverPos.openUp ? `bottom left` : `top left` }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          {STATUS_ORDER.map(s => (
+            <button
+              key={s}
+              type="button"
+              role="menuitem"
+              className={`qc-status-popover__item${s === status ? ` qc-status-popover__item--active` : ``}`}
+              onClick={e => { e.stopPropagation(); onSetStatus(s); setOpen(false) }}
+            >
+              <TaskStatusIcon status={s} />
+              {STATUS_LABEL[s]}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </div>
   )
 }
 
@@ -544,7 +586,7 @@ type TaskManagerPanelProps = {
   onAddTextChange: (value: string) => void
   onAddTask: () => void
   onCopy: () => void
-  onToggle: (taskId: string, checked: boolean) => void
+  onSetStatus: (taskId: string, status: TaskStatus) => void
   onEdit: (taskId: string, text: string) => void
   onRemove: (taskId: string) => void
 }
@@ -555,12 +597,16 @@ function TaskManagerPanel({
   onAddTextChange,
   onAddTask,
   onCopy,
-  onToggle,
+  onSetStatus,
   onEdit,
   onRemove,
 }: TaskManagerPanelProps) {
-  const completedTasks = tasks.filter(task => task.checked).length
-  const openTasks = tasks.length - completedTasks
+  const doneTasks = tasks.filter(t => t.status === `done`).length
+  const openTasks = tasks.length - doneTasks
+
+  const grouped = STATUS_ORDER
+    .map(status => ({ status, items: tasks.filter(t => t.status === status) }))
+    .filter(g => g.items.length > 0)
 
   return (
     <section className="qc-derived-panel" aria-label="Tasks">
@@ -568,7 +614,7 @@ function TaskManagerPanel({
         <div className="min-w-0">
           <div className="qc-derived-panel__title">Tasks</div>
           <div className="qc-derived-panel__subtitle">
-            {tasks.length ? `${openTasks} open · ${completedTasks} done` : `Move notes here to extract tasks`}
+            {tasks.length ? `${openTasks} open · ${doneTasks} done` : `Move notes here to extract tasks`}
           </div>
         </div>
         <button type="button" className="qc-derived-panel__ghost-btn" onClick={onCopy} disabled={!tasks.length}>
@@ -577,69 +623,67 @@ function TaskManagerPanel({
         </button>
       </div>
 
-      <div className="qc-derived-panel__list">
+      <div className="qc-task-list">
         {!tasks.length && (
           <div className="qc-derived-panel__empty">
             Choose <span>Move to...</span> on a note and select Tasks.
           </div>
         )}
 
-        {tasks.map(task => (
-          <div key={task.id} className="qc-derived-panel__item qc-derived-panel__item--task">
-            <input
-              type="checkbox"
-              checked={task.checked}
-              className="qc-derived-panel__checkbox"
-              onChange={e => onToggle(task.id, e.currentTarget.checked)}
-            />
-            <input
-              key={`${task.id}-${task.text}`}
-              type="text"
-              className="qc-derived-panel__input"
-              defaultValue={task.text}
-              onBlur={e => onEdit(task.id, e.currentTarget.value)}
-              onKeyDown={e => {
-                if (e.key === `Enter`) e.currentTarget.blur()
-              }}
-              aria-label="Task"
-            />
-            <button
-              type="button"
-              className="qc-derived-panel__remove"
-              onClick={() => onRemove(task.id)}
-              aria-label="Remove task"
-            >
-              <XIcon size={13} />
-            </button>
-            {task.sourceText && <p className="qc-derived-panel__source">{task.sourceText}</p>}
+        {grouped.map(group => (
+          <div key={group.status} className="qc-task-group">
+            <div className="qc-task-group__label">
+              <TaskStatusIcon status={group.status} />
+              {STATUS_LABEL[group.status]}
+            </div>
+            {group.items.map(task => (
+              <div key={task.id} className={`qc-task-row${task.status === `done` ? ` qc-task-row--done` : ``}`}>
+                <TaskStatusPicker status={task.status} onSetStatus={s => onSetStatus(task.id, s)} />
+                <input
+                  key={`${task.id}-${task.text}`}
+                  type="text"
+                  className="qc-task-text"
+                  defaultValue={task.text}
+                  onBlur={e => onEdit(task.id, e.currentTarget.value)}
+                  onKeyDown={e => { if (e.key === `Enter`) e.currentTarget.blur() }}
+                  aria-label="Task"
+                />
+                <button
+                  type="button"
+                  className="qc-task-remove"
+                  onClick={() => onRemove(task.id)}
+                  aria-label="Remove task"
+                >
+                  <XIcon size={12} />
+                </button>
+              </div>
+            ))}
           </div>
         ))}
-      </div>
 
-      <form
-        className="qc-derived-panel__add"
-        onSubmit={e => {
-          e.preventDefault()
-          onAddTask()
-        }}
-      >
-        <input
-          type="text"
-          value={addText}
-          onChange={e => onAddTextChange(e.currentTarget.value)}
-          placeholder="Add task"
-          aria-label="Add task"
-          maxLength={280}
-        />
-        <button type="submit" disabled={!addText.trim()}>Add</button>
-      </form>
+        <form
+          className="qc-task-add-row"
+          onSubmit={e => { e.preventDefault(); onAddTask() }}
+        >
+          <span className="qc-task-add-circle" aria-hidden="true" />
+          <input
+            type="text"
+            className="qc-task-text"
+            value={addText}
+            onChange={e => onAddTextChange(e.currentTarget.value)}
+            placeholder="New task…"
+            aria-label="Add task"
+            maxLength={280}
+          />
+        </form>
+      </div>
     </section>
   )
 }
 
 type IdeasPanelProps = {
   ideas: CaptureDerivedIdea[]
-  onEdit: (ideaId: string, patch: Partial<Pick<CaptureDerivedIdea, `title` | `text`>>) => void
+  onEdit: (ideaId: string, patch: Partial<Pick<CaptureDerivedIdea, `title` | `text` | `tag`>>) => void
   onRemove: (ideaId: string) => void
 }
 
@@ -663,16 +707,20 @@ function IdeasPanel({ ideas, onEdit, onRemove }: IdeasPanelProps) {
         )}
 
         {ideas.map(idea => (
-          <article key={idea.id} className="qc-derived-panel__card">
-            <div className="qc-derived-panel__card-head">
+          <article key={idea.id} className="qc-derived-panel__card qc-idea-card">
+            <div className="qc-idea-card__head">
               <input
                 key={`${idea.id}-title-${idea.title ?? ``}`}
                 type="text"
-                className="qc-derived-panel__title-input"
+                className="qc-idea-card__title"
                 defaultValue={idea.title ?? ``}
                 placeholder="Untitled idea"
                 onBlur={e => onEdit(idea.id, { title: e.currentTarget.value })}
                 aria-label="Idea title"
+              />
+              <IdeaTagPicker
+                tag={idea.tag}
+                onSetTag={t => onEdit(idea.id, { tag: t })}
               />
               <button
                 type="button"
@@ -685,10 +733,12 @@ function IdeasPanel({ ideas, onEdit, onRemove }: IdeasPanelProps) {
             </div>
             <textarea
               key={`${idea.id}-text-${idea.text}`}
-              className="qc-derived-panel__textarea"
+              className="qc-idea-card__text"
               defaultValue={idea.text}
+              placeholder="Add context, the so-what, the next move..."
               onBlur={e => onEdit(idea.id, { text: e.currentTarget.value })}
               aria-label="Idea"
+              rows={2}
             />
             {idea.sourceText && <p className="qc-derived-panel__source">{idea.sourceText}</p>}
           </article>
@@ -775,9 +825,86 @@ function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPane
   )
 }
 
+function IdeaTagPicker({
+  tag,
+  onSetTag,
+}: {
+  tag: IdeaTag | undefined
+  onSetTag: (next: IdeaTag | undefined) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, openUp: false })
+  const btnRef = useRef<HTMLButtonElement | null>(null)
+
+  const POPOVER_H = 150
+  const POPOVER_W = 180
+  const SAFE = 8
+
+  function openPicker(e: MouseEvent) {
+    e.stopPropagation()
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - r.bottom
+      const openUp = spaceBelow < POPOVER_H + 12
+      const top = openUp ? r.top - POPOVER_H - 6 : r.bottom + 6
+      const overflowsRight = r.left + POPOVER_W > window.innerWidth - SAFE
+      const left = overflowsRight
+        ? Math.max(SAFE, r.right - POPOVER_W)
+        : Math.max(SAFE, r.left)
+      setPopoverPos({ top, left, openUp })
+    }
+    setOpen(prev => !prev)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    document.addEventListener(`mousedown`, close)
+    return () => document.removeEventListener(`mousedown`, close)
+  }, [open])
+
+  return (
+    <div className="qc-tag-wrap">
+      <button
+        ref={btnRef}
+        type="button"
+        className={`qc-tag-pill${tag ? ` qc-tag-pill--${tag}` : ` qc-tag-pill--empty`}`}
+        aria-label="Change tag"
+        onClick={openPicker}
+      >
+        <span className="qc-tag-pill__dot" aria-hidden />
+        {tag ? IDEA_TAG_LABEL[tag] : `Tag`}
+      </button>
+      {open && createPortal(
+        <div
+          className="qc-tag-popover"
+          role="menu"
+          style={{ position: `fixed`, top: popoverPos.top, left: popoverPos.left, transformOrigin: popoverPos.openUp ? `bottom left` : `top left` }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          {IDEA_TAGS.map(t => (
+            <button
+              key={t}
+              type="button"
+              role="menuitem"
+              className={`qc-tag-popover__item qc-tag-popover__item--${t}${t === tag ? ` qc-tag-popover__item--active` : ``}`}
+              onClick={e => { e.stopPropagation(); onSetTag(t === tag ? undefined : t); setOpen(false) }}
+            >
+              <span className={`qc-tag-pill__dot qc-tag-pill__dot--${t}`} aria-hidden />
+              {IDEA_TAG_LABEL[t]}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </div>
+  )
+}
+
 type MoveReviewModalProps = {
   state: MoveReviewState
   row: CaptureHistoryRow | null
+  shellEl: HTMLElement | null
   onClose: () => void
   onAccept: () => void
   onToggleDraft: (draftId: string, selected: boolean) => void
@@ -793,6 +920,7 @@ function destinationLabel(mode: MoveDestinationMode) {
 function MoveReviewModal({
   state,
   row,
+  shellEl,
   onClose,
   onAccept,
   onToggleDraft,
@@ -813,13 +941,18 @@ function MoveReviewModal({
     <div className="qc-move-modal" role="dialog" aria-modal="true" aria-label={`Move to ${destinationLabel(state.mode)}`}>
       <div className="qc-move-modal__sheet">
         <div className="qc-move-modal__header">
-          <div className="min-w-0">
+          <div className="qc-move-modal__header-left">
             <div className="qc-move-modal__title">Move to {destinationLabel(state.mode)}</div>
             <p>{row?.text ?? ``}</p>
           </div>
-          <button type="button" className="qc-move-modal__icon-btn" onClick={onClose} aria-label="Close">
-            <XIcon size={14} />
-          </button>
+          <div className="qc-move-modal__header-actions">
+            <button type="button" className="qc-move-modal__text-btn qc-move-modal__text-btn--cancel" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className="qc-move-modal__text-btn qc-move-modal__text-btn--confirm" disabled={!canAccept} onClick={onAccept}>
+              Add {selectedCount || ``} {destinationLabel(state.mode)}
+            </button>
+          </div>
         </div>
 
         <div className="qc-move-modal__body">
@@ -848,42 +981,80 @@ function MoveReviewModal({
             </div>
           )}
 
-          {state.status === `ready` && state.drafts.map(draft => (
-            <div key={draft.id} className="qc-move-modal__draft">
-              <input
-                type="checkbox"
-                checked={draft.selected}
-                onChange={e => onToggleDraft(draft.id, e.currentTarget.checked)}
-                aria-label="Include item"
-              />
-
-              {draft.mode === `tasks` && (
-                <input
-                  type="text"
-                  value={draft.text}
-                  onChange={e => onUpdateDraft(draft.id, { text: e.currentTarget.value } as Partial<MoveReviewDraft>)}
-                  aria-label="Task draft"
-                />
-              )}
-
-              {draft.mode === `ideas` && (
-                <div className="qc-move-modal__idea-fields">
+          {state.status === `ready` && state.drafts.map(draft => {
+            if (draft.mode === `tasks`) {
+              return (
+                <div key={draft.id} className="qc-move-modal__task-row">
+                  <button
+                    type="button"
+                    className={`qc-task-check${draft.selected ? ` qc-task-check--selected` : ` qc-task-check--unchecked`}`}
+                    onClick={() => onToggleDraft(draft.id, !draft.selected)}
+                    aria-label={draft.selected ? `Deselect` : `Select`}
+                  >
+                    {draft.selected && <CheckIcon size={10} />}
+                  </button>
                   <input
                     type="text"
-                    value={draft.title}
-                    placeholder="Idea title"
-                    onChange={e => onUpdateDraft(draft.id, { title: e.currentTarget.value } as Partial<MoveReviewDraft>)}
-                    aria-label="Idea title"
-                  />
-                  <textarea
+                    className="qc-task-text"
                     value={draft.text}
                     onChange={e => onUpdateDraft(draft.id, { text: e.currentTarget.value } as Partial<MoveReviewDraft>)}
-                    aria-label="Idea draft"
+                    aria-label="Task"
+                  />
+                  <TaskStatusPicker
+                    status={draft.status}
+                    onSetStatus={s => onUpdateDraft(draft.id, { status: s } as Partial<MoveReviewDraft>)}
                   />
                 </div>
-              )}
+              )
+            }
 
-              {draft.mode === `reminders` && (
+            if (draft.mode === `ideas`) {
+              return (
+                <div key={draft.id} className={`qc-move-modal__idea-row${draft.selected ? `` : ` qc-move-modal__idea-row--muted`}`}>
+                  <button
+                    type="button"
+                    className={`qc-task-check${draft.selected ? ` qc-task-check--selected` : ` qc-task-check--unchecked`}`}
+                    onClick={() => onToggleDraft(draft.id, !draft.selected)}
+                    aria-label={draft.selected ? `Deselect` : `Select`}
+                  >
+                    {draft.selected && <CheckIcon size={10} />}
+                  </button>
+                  <div className="qc-idea-row__body">
+                    <div className="qc-idea-row__head">
+                      <input
+                        type="text"
+                        className="qc-idea-row__title"
+                        value={draft.title}
+                        placeholder="Untitled idea"
+                        onChange={e => onUpdateDraft(draft.id, { title: e.currentTarget.value } as Partial<MoveReviewDraft>)}
+                        aria-label="Idea title"
+                      />
+                      <IdeaTagPicker
+                        tag={draft.tag}
+                        onSetTag={t => onUpdateDraft(draft.id, { tag: t } as Partial<MoveReviewDraft>)}
+                      />
+                    </div>
+                    <textarea
+                      className="qc-idea-row__text"
+                      value={draft.text}
+                      placeholder="Add context, the so-what, the next move..."
+                      onChange={e => onUpdateDraft(draft.id, { text: e.currentTarget.value } as Partial<MoveReviewDraft>)}
+                      aria-label="Idea body"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <div key={draft.id} className="qc-move-modal__draft">
+                <input
+                  type="checkbox"
+                  checked={draft.selected}
+                  onChange={e => onToggleDraft(draft.id, e.currentTarget.checked)}
+                  aria-label="Include item"
+                />
                 <div className="qc-move-modal__reminder-fields">
                   <input
                     type="text"
@@ -907,22 +1078,14 @@ function MoveReviewModal({
                   </div>
                   {(!draft.dateText || !draft.timeText) && <span>Date and time are required.</span>}
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            )
+          })}
         </div>
 
-        <div className="qc-move-modal__footer">
-          <button type="button" className="qc-move-modal__secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="qc-move-modal__primary" disabled={!canAccept} onClick={onAccept}>
-            Add {selectedCount || ``} {destinationLabel(state.mode)}
-          </button>
-        </div>
       </div>
     </div>,
-    document.body,
+    shellEl ?? document.body,
   )
 }
 
@@ -968,7 +1131,7 @@ function ReminderIcon({ size = 15 }: { size?: number }) {
 }
 
 function MoreIcon({ size = 15 }: { size?: number }) {
-  return <MoreHorizontal size={size} strokeWidth={SW} />
+  return <FolderInput size={size} strokeWidth={SW} />
 }
 
 /** Title-bar style minimize (floating window chrome). */
@@ -1060,7 +1223,24 @@ export function QuickCapture() {
   const widthPx  = WIDTH_BY_PHASE[layoutPhaseForShell]
   const heightPx = HEIGHT_BY_PHASE[layoutPhaseForShell]
   const isEmbeddedRecording = phase === `recording`
+  const isOutputMode = layoutPhaseForShell === `output`
 
+  // In output mode the shell fills the Electron window so dragging an edge resizes content.
+  // We track the window's inner dimensions and use them instead of the fixed constants.
+  const SHELL_PADDING = 32 // 2 × p-4 (16px each side)
+  const [windowSize, setWindowSize] = useState<{ w: number; h: number }>({
+    w: window.innerWidth,
+    h: window.innerHeight,
+  })
+  useEffect(() => {
+    if (!isOutputMode) return
+    const onResize = () => setWindowSize({ w: window.innerWidth, h: window.innerHeight })
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [isOutputMode])
+
+  const shellWidth  = isOutputMode ? windowSize.w - SHELL_PADDING : widthPx
+  const shellHeight = isOutputMode ? windowSize.h - SHELL_PADDING : heightPx
 
   function resizeElectronWindow() {
     const pillBridge = window.pill
@@ -1544,6 +1724,24 @@ export function QuickCapture() {
         mergeNoteContinue(continueBase, resolved)
       : resolved
 
+    // Secondary silent guard — catches Whisper hallucinations that slipped past resolvedIsEmpty
+    if (classifySilentTranscript(merged)) {
+      const rows = loadCaptureHistory()
+      const latest = rows[0]
+      setHistoryRows(rows)
+      setLiveText(``)
+      setFinalText(continueBase ?? latest?.text ?? ``)
+      setNoteCapturedAt(continueBase !== null ? noteCapturedAt : (latest?.at ?? null))
+      setFeedStampNowMs(nowMs())
+      setNotePresentationMode(`plain`)
+      setTrackedOriginalTranscript(null)
+      setPastCleanupDraft(null)
+      setIsProcessingWhisper(false)
+      setPhase(`output`)
+      showFeedAcknowledgement(`No speech captured`)
+      return
+    }
+
     const captured = addCaptureHistoryEntry(merged)
     setHistoryRows(loadCaptureHistory())
     setNewlyAddedRowId(captured.id)
@@ -1694,6 +1892,7 @@ export function QuickCapture() {
         mode: `tasks`,
         selected: true,
         text: item.text,
+        status: `todo` as TaskStatus,
       }))
     }
 
@@ -1749,6 +1948,7 @@ export function QuickCapture() {
           mode: `tasks` as const,
           selected: true,
           text,
+          status: `todo` as TaskStatus,
         }))
 
       return drafts.length ? drafts : []
@@ -1756,10 +1956,18 @@ export function QuickCapture() {
 
     if (mode === `ideas`) {
       const drafts = (result.ideas ?? [])
-        .map(item => ({
-          title: `${item.title ?? ``}`.trim(),
-          text: `${item.text ?? ``}`.trim(),
-        }))
+        .map(item => {
+          const tagRaw = `${item.tag ?? ``}`.trim().toLowerCase()
+          const tag: IdeaTag | undefined =
+            tagRaw === `product` || tagRaw === `strategy` || tagRaw === `content` || tagRaw === `other`
+              ? tagRaw
+              : undefined
+          return {
+            title: `${item.title ?? ``}`.trim(),
+            text: `${item.text ?? ``}`.trim(),
+            tag,
+          }
+        })
         .filter(item => item.text.length > 0)
         .slice(0, 20)
         .map(item => ({
@@ -1768,6 +1976,7 @@ export function QuickCapture() {
           selected: true,
           title: item.title,
           text: item.text,
+          ...(item.tag ? { tag: item.tag } : {}),
         }))
 
       return drafts.length ? drafts : []
@@ -1928,6 +2137,7 @@ export function QuickCapture() {
     const text = taskAddText.trim()
     if (!text.length) return
 
+    showFeedAcknowledgement(`Task added`)
     const now = nowMs()
     saveTasks([
       {
@@ -1936,6 +2146,7 @@ export function QuickCapture() {
         sourceText: ``,
         text,
         checked: false,
+        status: `todo` as TaskStatus,
         createdAt: now,
         updatedAt: now,
       },
@@ -1944,9 +2155,11 @@ export function QuickCapture() {
     setTaskAddText(``)
   }
 
-  function toggleTask(taskId: string, checked: boolean) {
+  function setTaskStatus(taskId: string, status: TaskStatus) {
+    const label = status === `done` ? `Task done` : status === `in_progress` ? `In progress` : `Task reopened`
+    showFeedAcknowledgement(label)
     saveTasks(derivedItems.tasks.map(item =>
-      item.id === taskId ? { ...item, checked, updatedAt: nowMs() } : item,
+      item.id === taskId ? { ...item, status, checked: status === `done`, updatedAt: nowMs() } : item,
     ))
   }
 
@@ -1960,21 +2173,24 @@ export function QuickCapture() {
   }
 
   function removeTask(taskId: string) {
+    showFeedAcknowledgement(`Task removed`)
     saveTasks(derivedItems.tasks.filter(item => item.id !== taskId))
   }
 
-  function editIdea(ideaId: string, patch: Partial<Pick<CaptureDerivedIdea, `title` | `text`>>) {
+  function editIdea(ideaId: string, patch: Partial<Pick<CaptureDerivedIdea, `title` | `text` | `tag`>>) {
     saveIdeas(
       derivedItems.ideas
         .map(item => {
           if (item.id !== ideaId) return item
           const title = patch.title !== undefined ? patch.title.trim() : item.title
           const text = patch.text !== undefined ? patch.text.trim() : item.text
+          const tag = `tag` in patch ? patch.tag : item.tag
 
           return {
             ...item,
             ...(title ? { title } : { title: undefined }),
             text,
+            ...(tag ? { tag } : { tag: undefined }),
             updatedAt: nowMs(),
           }
         })
@@ -1983,6 +2199,7 @@ export function QuickCapture() {
   }
 
   function removeIdea(ideaId: string) {
+    showFeedAcknowledgement(`Idea removed`)
     saveIdeas(derivedItems.ideas.filter(item => item.id !== ideaId))
   }
 
@@ -1998,6 +2215,7 @@ export function QuickCapture() {
   }
 
   function toggleReminder(reminderId: string, done: boolean) {
+    showFeedAcknowledgement(done ? `Reminder done` : `Reminder reopened`)
     saveReminders(derivedItems.reminders.map(item =>
       item.id === reminderId ? { ...item, done, updatedAt: nowMs() } : item,
     ))
@@ -2031,6 +2249,7 @@ export function QuickCapture() {
   }
 
   function removeReminder(reminderId: string) {
+    showFeedAcknowledgement(`Reminder removed`)
     saveReminders(derivedItems.reminders.filter(item => item.id !== reminderId))
   }
 
@@ -2114,7 +2333,8 @@ export function QuickCapture() {
           sourceNoteId: row.id,
           sourceText,
           text: draft.text.trim(),
-          checked: false,
+          status: draft.status,
+          checked: draft.status === `done`,
           createdAt,
           updatedAt: createdAt,
         }))
@@ -2134,6 +2354,7 @@ export function QuickCapture() {
           sourceText,
           title: draft.title.trim() || undefined,
           text: draft.text.trim(),
+          ...(draft.tag ? { tag: draft.tag } : {}),
           createdAt,
           updatedAt: createdAt,
         }))
@@ -2173,7 +2394,20 @@ export function QuickCapture() {
       showFeedAcknowledgement(`${nextReminders.length} added to Reminders`)
     }
 
+    // Mark this row as moved so the feed shows the destination label
+    const movedDestination = moveReview.mode as MoveDestination
+    const updatedRows = updateCaptureHistoryMovedTo(moveReview.rowId, movedDestination)
+    setHistoryRows(updatedRows)
+
     setMoveReview(null)
+  }
+
+  function handleRemoveFromFolder(row: CaptureHistoryRow) {
+    const label = row.movedTo === `tasks` ? `Tasks` : row.movedTo === `ideas` ? `Ideas` : `Reminders`
+    const updatedRows = clearCaptureHistoryMovedTo(row.id)
+    setHistoryRows(updatedRows)
+    setMovePopoverRowId(null)
+    showFeedAcknowledgement(`Removed from ${label}`)
   }
 
   async function handleFeedRowCleanUp(
@@ -2222,6 +2456,54 @@ export function QuickCapture() {
       }))
     } catch {
       revealAiBanner(`Refine failed — check connectivity and quotas.`)
+    } finally {
+      setFeedRowActionBusy(null)
+    }
+  }
+
+  async function handleFeedRowTidy(
+    row: CaptureHistoryRow,
+    isLatest: boolean,
+    evt?: MouseEvent,
+  ) {
+    evt?.stopPropagation()
+    if (isProcessingWhisper) return
+
+    const pillBridge = window.pill
+    if (!pillBridge) return
+
+    const trimmed = isLatest ? getNotePlainSnapshot() : row.text.trim()
+    if (!trimmed.length || row.silent) return
+
+    setFeedRowActionBusy(row.id)
+    try {
+      const outcome = await pillBridge.suggestEdits({ text: trimmed })
+      if (!outcome.ok) {
+        revealAiBanner(outcome.message ?? `Tidy failed (${outcome.code}).`)
+        return
+      }
+
+      const polished = `${outcome.cleanedText ?? ``}`.trim()
+      if (!polished.length || polished === trimmed) {
+        revealAiBanner(`Already tidy — no changes needed.`)
+        return
+      }
+
+      // Apply silently: no diff view, just replace text directly
+      if (isLatest) {
+        setFinalText(polished)
+        setNotePresentationMode(`plain`)
+        setTrackedOriginalTranscript(null)
+        resetLatestCopyState()
+        if (noteCapturedAt !== null) updateCaptureHistoryById(row.id, polished)
+      } else {
+        updateCaptureHistoryById(row.id, polished)
+        setPastCleanupDraft(null)
+      }
+      setHistoryRows(loadCaptureHistory())
+      showFeedAcknowledgement(`Tidied`)
+    } catch {
+      revealAiBanner(`Tidy failed — check connectivity and quotas.`)
     } finally {
       setFeedRowActionBusy(null)
     }
@@ -2367,8 +2649,8 @@ export function QuickCapture() {
       <section
         ref={node => { shellRef.current = node }}
         style={{
-          width: widthPx,
-          height: heightPx,
+          width: shellWidth,
+          height: shellHeight,
           borderRadius:
             phase === `output` || isEmbeddedRecording ? `var(--qc-radius-lg)` : `999px`,
           transition: SPRING_TRANSITION,
@@ -2539,7 +2821,7 @@ export function QuickCapture() {
               >
 
               <div className="qc-thought-layout">
-                {!isSelectionMode && !isEmbeddedRecording && (
+                {!isEmbeddedRecording && (
                   <DestinationRail
                     activePanel={activePanel}
                     noteCount={historyRows.length}
@@ -2665,7 +2947,11 @@ export function QuickCapture() {
                               onClick={isSelectionMode ? () => toggleSelectId(row.id) : undefined}
                             >
                               {isSelectionMode && (
-                                <div className="qc-feed-select-col" aria-hidden>
+                                <div
+                                  className="qc-feed-select-col"
+                                  aria-hidden
+                                  onClick={e => { e.stopPropagation(); toggleSelectId(row.id) }}
+                                >
                                   <div className={`qc-feed-checkbox${selectedIds.has(row.id) ? ` qc-feed-checkbox--checked` : ``}`}>
                                     {selectedIds.has(row.id) && <CheckIcon size={10} />}
                                   </div>
@@ -2706,19 +2992,17 @@ export function QuickCapture() {
                                                 }}
                                               />
                                             : <ImproveIconOutline size={14} />}
-                                            <span>Refine</span>
                                           </button>
                                         </Tip>
-                                        <Tip content="Tidy with review">
+                                        <Tip content="Tidy — apply fixes silently">
                                           <button
                                             type="button"
                                             className="qc-feed-action qc-feed-action--label"
                                             aria-label="Tidy"
                                             disabled={cleanDisabled}
-                                            onClick={(e) => void handleFeedRowCleanUp(row, isLatest, e)}
+                                            onClick={(e) => void handleFeedRowTidy(row, isLatest, e)}
                                           >
                                             <ChecklistIcon size={14} />
-                                            <span>Tidy</span>
                                           </button>
                                         </Tip>
                                         <Tip content={isLatest && copyOk ? `Copied` : copiedRowId === row.id ? `Copied` : `Copy`}>
@@ -2732,50 +3016,100 @@ export function QuickCapture() {
                                             {(isLatest && copyOk) || copiedRowId === row.id ?
                                               <CheckIcon size={14} />
                                             : <CopyIcon size={14} />}
-                                            <span>Copy</span>
                                           </button>
                                         </Tip>
                                         <div className="qc-move-menu-wrap">
-                                          <button
-                                            type="button"
-                                            className="qc-feed-action qc-feed-action--label qc-feed-action--move"
-                                            aria-label="Move to"
-                                            disabled={moveDisabled}
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              setMovePopoverRowId(prev => prev === row.id ? null : row.id)
-                                            }}
-                                          >
-                                            <span>Move to...</span>
-                                            <MoreIcon size={14} />
-                                          </button>
-                                          {movePopoverRowId === row.id && (
-                                            <div className="qc-move-popover" role="menu" aria-label="Move note to">
+                                          {row.movedTo ? (
+                                            <>
                                               <button
                                                 type="button"
-                                                role="menuitem"
-                                                onClick={(e) => void openMoveReview(row, `tasks`, e)}
+                                                className="qc-moved-badge"
+                                                aria-label={`Moved to ${row.movedTo}`}
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setMovePopoverRowId(prev => prev === row.id ? null : row.id)
+                                                }}
                                               >
-                                                <ChecklistIcon size={14} />
-                                                Tasks
+                                                {row.movedTo === `tasks` && <ChecklistIcon size={11} />}
+                                                {row.movedTo === `ideas` && <IdeaIcon size={11} />}
+                                                {row.movedTo === `reminders` && <ReminderIcon size={11} />}
+                                                {row.movedTo === `tasks` ? `Tasks` : row.movedTo === `ideas` ? `Ideas` : `Reminders`}
                                               </button>
+                                              {movePopoverRowId === row.id && (
+                                                <div className="qc-move-popover" role="menu" aria-label="Folder options">
+                                                  <button
+                                                    type="button"
+                                                    role="menuitem"
+                                                    className="qc-move-popover__remove"
+                                                    onClick={(e) => { e.stopPropagation(); handleRemoveFromFolder(row) }}
+                                                  >
+                                                    <XIcon size={13} />
+                                                    Remove from {row.movedTo === `tasks` ? `Tasks` : row.movedTo === `ideas` ? `Ideas` : `Reminders`}
+                                                  </button>
+                                                  {([`tasks`, `ideas`, `reminders`] as const)
+                                                    .filter(d => d !== row.movedTo)
+                                                    .map(dest => (
+                                                      <button
+                                                        key={dest}
+                                                        type="button"
+                                                        role="menuitem"
+                                                        onClick={(e) => void openMoveReview(row, dest, e)}
+                                                      >
+                                                        {dest === `tasks` && <ChecklistIcon size={14} />}
+                                                        {dest === `ideas` && <IdeaIcon size={14} />}
+                                                        {dest === `reminders` && <ReminderIcon size={14} />}
+                                                        Move to {dest === `tasks` ? `Tasks` : dest === `ideas` ? `Ideas` : `Reminders`}
+                                                      </button>
+                                                    ))
+                                                  }
+                                                </div>
+                                              )}
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Tip content="Move to…">
                                               <button
                                                 type="button"
-                                                role="menuitem"
-                                                onClick={(e) => void openMoveReview(row, `ideas`, e)}
+                                                className="qc-feed-action qc-feed-action--label qc-feed-action--move"
+                                                aria-label="Move to"
+                                                disabled={moveDisabled}
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setMovePopoverRowId(prev => prev === row.id ? null : row.id)
+                                                }}
                                               >
-                                                <IdeaIcon size={14} />
-                                                Ideas
+                                                <MoreIcon size={14} />
                                               </button>
-                                              <button
-                                                type="button"
-                                                role="menuitem"
-                                                onClick={(e) => void openMoveReview(row, `reminders`, e)}
-                                              >
-                                                <ReminderIcon size={14} />
-                                                Reminders
-                                              </button>
-                                            </div>
+                                              </Tip>
+                                              {movePopoverRowId === row.id && (
+                                                <div className="qc-move-popover" role="menu" aria-label="Move note to">
+                                                  <button
+                                                    type="button"
+                                                    role="menuitem"
+                                                    onClick={(e) => void openMoveReview(row, `tasks`, e)}
+                                                  >
+                                                    <ChecklistIcon size={14} />
+                                                    Tasks
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    role="menuitem"
+                                                    onClick={(e) => void openMoveReview(row, `ideas`, e)}
+                                                  >
+                                                    <IdeaIcon size={14} />
+                                                    Ideas
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    role="menuitem"
+                                                    onClick={(e) => void openMoveReview(row, `reminders`, e)}
+                                                  >
+                                                    <ReminderIcon size={14} />
+                                                    Reminders
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </>
                                           )}
                                         </div>
                                         {isLatest && notePresentationMode === `tracked` && trackedOriginalTranscript !== null && (
@@ -2900,7 +3234,7 @@ export function QuickCapture() {
                       onAddTextChange={setTaskAddText}
                       onAddTask={addManualTask}
                       onCopy={() => void copyTasks()}
-                      onToggle={toggleTask}
+                      onSetStatus={setTaskStatus}
                       onEdit={editTask}
                       onRemove={removeTask}
                     />
@@ -2969,6 +3303,7 @@ export function QuickCapture() {
         <MoveReviewModal
           state={moveReview}
           row={activeMoveReviewRow}
+          shellEl={shellRef.current}
           onClose={() => setMoveReview(null)}
           onAccept={acceptMoveReview}
           onToggleDraft={toggleMoveDraft}
