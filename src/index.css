@@ -2524,7 +2524,7 @@
   .qc-reminder-input-date,
   .qc-reminder-input-time {
     background: transparent;
-    color: #FF6B35;
+    color: inherit;
     font: inherit;
     font-size: 13px;
     padding: 0;
