@@ -2488,7 +2488,7 @@
   .qc-reminder-item-meta {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 2px;
     flex-wrap: nowrap;
     margin-top: 8px;
     font-size: 13px;
