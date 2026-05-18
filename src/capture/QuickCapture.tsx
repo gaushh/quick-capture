@@ -1451,6 +1451,7 @@ export function QuickCapture() {
   const [historyRows, setHistoryRows] = useState<CaptureHistoryRow[]>(() => loadCaptureHistory())
   const [derivedItems, setDerivedItems] = useState<CaptureDerivedItems>(() => loadCaptureDerivedItems())
   const [activePanel, setActivePanel] = useState<ActivePanel>(`notes`)
+  const [selectedMoveDestination, setSelectedMoveDestination] = useState<MoveDestination | null>(null)
   const [taskAddText, setTaskAddText] = useState(``)
   const [liveText, setLiveText] = useState('')
   const [finalText, setFinalText] = useState('')
@@ -2847,7 +2848,7 @@ export function QuickCapture() {
   }
 
   function selectAll() {
-    const allIds = historyRows.map(r => r.id)
+    const allIds = filteredHistoryRows.map(r => r.id)
     setSelectedIds(prev =>
       prev.size === allIds.length ? new Set() : new Set(allIds),
     )
@@ -2921,6 +2922,18 @@ export function QuickCapture() {
       window.removeEventListener('keydown', onKey)
     }
   }, [])
+
+  // Calculate destination counts for "All notes" filters
+  const destinationCounts = {
+    tasks: historyRows.filter(row => row.movedTo === 'tasks').length,
+    ideas: historyRows.filter(row => row.movedTo === 'ideas').length,
+    reminders: historyRows.filter(row => row.movedTo === 'reminders').length,
+  }
+
+  // Filter history rows based on selected destination
+  const filteredHistoryRows = selectedMoveDestination
+    ? historyRows.filter(row => row.movedTo === selectedMoveDestination)
+    : historyRows
 
   return (
     <div
@@ -3122,10 +3135,50 @@ export function QuickCapture() {
                         <div>
                           <div className="qc-derived-panel__title">All notes</div>
                           <div className="qc-derived-panel__subtitle">
-                            {historyRows.length ? `${historyRows.length} captured` : `Press ⌃Space to record`}
+                            {historyRows.length ? `${filteredHistoryRows.length} captured` : `Press ⌃Space to record`}
                           </div>
                         </div>
                       </div>
+
+                      <div className="qc-task-filter-pills">
+                        <button
+                          key="all"
+                          type="button"
+                          className={`qc-status-pill${selectedMoveDestination === null ? ` qc-status-pill--selected` : ``}`}
+                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === null ? null : null)}
+                          aria-pressed={selectedMoveDestination === null}
+                        >
+                          All <span className="qc-pill-count">({historyRows.length})</span>
+                        </button>
+                        <button
+                          key="tasks"
+                          type="button"
+                          className={`qc-status-pill${selectedMoveDestination === 'tasks' ? ` qc-status-pill--selected` : ``}`}
+                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'tasks' ? null : 'tasks')}
+                          aria-pressed={selectedMoveDestination === 'tasks'}
+                        >
+                          Tasks <span className="qc-pill-count">({destinationCounts.tasks})</span>
+                        </button>
+                        <button
+                          key="ideas"
+                          type="button"
+                          className={`qc-status-pill${selectedMoveDestination === 'ideas' ? ` qc-status-pill--selected` : ``}`}
+                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'ideas' ? null : 'ideas')}
+                          aria-pressed={selectedMoveDestination === 'ideas'}
+                        >
+                          Ideas <span className="qc-pill-count">({destinationCounts.ideas})</span>
+                        </button>
+                        <button
+                          key="reminders"
+                          type="button"
+                          className={`qc-status-pill${selectedMoveDestination === 'reminders' ? ` qc-status-pill--selected` : ``}`}
+                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === 'reminders' ? null : 'reminders')}
+                          aria-pressed={selectedMoveDestination === 'reminders'}
+                        >
+                          Reminders <span className="qc-pill-count">({destinationCounts.reminders})</span>
+                        </button>
+                      </div>
+
                       <div
                         ref={noteTranscriptScrollRef}
                         className="transcript-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
@@ -3177,27 +3230,27 @@ export function QuickCapture() {
                           </div>
                         )}
 
-                        {isSelectionMode && historyRows.length > 0 && (
+                        {isSelectionMode && filteredHistoryRows.length > 0 && (
                           <div className="qc-feed-select-all-row">
                             <label className="qc-feed-select-all-label">
                               <div
-                                className={`qc-feed-checkbox${selectedIds.size === historyRows.length ? ` qc-feed-checkbox--checked` : ``}`}
+                                className={`qc-feed-checkbox${selectedIds.size === filteredHistoryRows.length && filteredHistoryRows.length > 0 ? ` qc-feed-checkbox--checked` : ``}`}
                                 onClick={selectAll}
                                 role="checkbox"
-                                aria-checked={selectedIds.size === historyRows.length}
+                                aria-checked={selectedIds.size === filteredHistoryRows.length && filteredHistoryRows.length > 0}
                                 tabIndex={0}
                                 onKeyDown={(e) => e.key === ` ` && selectAll()}
                               >
-                                {selectedIds.size === historyRows.length && <CheckIcon size={10} />}
+                                {selectedIds.size === filteredHistoryRows.length && filteredHistoryRows.length > 0 && <CheckIcon size={10} />}
                               </div>
                               <span style={{ fontSize: `12px`, color: `var(--qc-text-muted)` }}>
-                                {selectedIds.size === historyRows.length ? `Deselect all` : `Select all`}
+                                {selectedIds.size === filteredHistoryRows.length && filteredHistoryRows.length > 0 ? `Deselect all` : `Select all`}
                               </span>
                             </label>
                           </div>
                         )}
 
-                        {historyRows.map((row, idx) => {
+                        {filteredHistoryRows.map((row, idx) => {
                           const isLatest = idx === 0
                           const stamp =
                             isLatest && noteCapturedAt !== null ?
@@ -3496,9 +3549,14 @@ export function QuickCapture() {
                           )
                         })}
 
-                        {historyRows.length === 0 && !isProcessingWhisper && !isEmbeddedRecording && (
+                        {filteredHistoryRows.length === 0 && historyRows.length === 0 && !isProcessingWhisper && !isEmbeddedRecording && (
                           <p className="px-3 py-6 text-sm italic" style={{ color: `var(--qc-text-muted)` }}>
                             No captures yet.
+                          </p>
+                        )}
+                        {filteredHistoryRows.length === 0 && historyRows.length > 0 && !isProcessingWhisper && !isEmbeddedRecording && (
+                          <p className="px-3 py-6 text-sm italic" style={{ color: `var(--qc-text-muted)` }}>
+                            No notes in this category.
                           </p>
                         )}
                       </div>
