@@ -2172,7 +2172,7 @@
     border-radius: var(--qc-radius-md);
     background: var(--qc-bg-canvas);
     color: var(--qc-text-secondary);
-    box-shadow: 0 2px 12px rgba(9, 12, 20, 0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     font-size: 12px;
     font-weight: var(--qc-fw-medium);
     line-height: 1;
@@ -2194,8 +2194,8 @@
 
   /* Toast type variants */
   .qc-feed-ack--success {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: rgba(16, 185, 129, 0.2);
+    background: var(--qc-bg-canvas);
+    border-color: rgba(16, 185, 129, 0.4);
     color: var(--success-green);
   }
 
@@ -2204,8 +2204,8 @@
   }
 
   .qc-feed-ack--danger {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.2);
+    background: var(--qc-bg-canvas);
+    border-color: rgba(239, 68, 68, 0.4);
     color: var(--recording-red);
   }
 
@@ -2214,8 +2214,8 @@
   }
 
   .qc-feed-ack--warning {
-    background: rgba(245, 158, 11, 0.1);
-    border-color: rgba(245, 158, 11, 0.2);
+    background: var(--qc-bg-canvas);
+    border-color: rgba(245, 158, 11, 0.4);
     color: var(--warning-orange);
   }
 
@@ -2224,8 +2224,8 @@
   }
 
   .qc-feed-ack--info {
-    background: rgba(59, 130, 246, 0.1);
-    border-color: rgba(59, 130, 246, 0.2);
+    background: var(--qc-bg-canvas);
+    border-color: rgba(59, 130, 246, 0.4);
     color: var(--qc-accent);
   }
 
