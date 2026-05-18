@@ -2624,9 +2624,12 @@ export function QuickCapture() {
         if (draft.id !== draftId) return draft
 
         if (draft.mode === `tasks`) {
+          const nextStatus = `status` in patch && typeof patch.status === `string` ? patch.status as TaskStatus : draft.status
           return {
             ...draft,
             text: `text` in patch && typeof patch.text === `string` ? patch.text : draft.text,
+            status: nextStatus,
+            checked: nextStatus === `done`,
           }
         }
 
