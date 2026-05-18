@@ -645,7 +645,6 @@ function TaskManagerPanel({
         {grouped.map(group => (
           <div key={group.status} className="qc-task-group">
             <div className="qc-task-group__label">
-              <TaskStatusIcon status={group.status} />
               {STATUS_LABEL[group.status]}
               <span className="qc-task-group__count">({group.items.length})</span>
             </div>
