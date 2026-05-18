@@ -302,18 +302,65 @@ function FeedClampText({
   )
 }
 
-/** Inner tooltip div — measures itself after mount and clamps horizontally within the viewport. */
+/** Get safe bounds for positioning tooltips/popovers within the app window, accounting for padding. */
+function getAppSafeBounds(): { top: number; left: number; right: number; bottom: number; margin: number } {
+  // SHELL_PADDING is 32px total (16px each side) in output mode, 4px in other modes.
+  // Detect mode based on height: idle=38px, recording=52px, output=520px
+  const isOutputMode = window.innerHeight > 100 // heuristic: output mode is >100px (well above idle 38px and recording 52px)
+  const padding = isOutputMode ? 16 : 4 // margin from edge to shell
+  const margin = 8 // additional safety margin inside the safe bounds
+
+  return {
+    top: padding + margin,
+    left: padding + margin,
+    right: window.innerWidth - padding - margin,
+    bottom: window.innerHeight - padding - margin,
+    margin,
+  }
+}
+
+/** Inner tooltip div — measures itself after mount and clamps within the app bounds, repositioning vertically if needed. */
 function TooltipEl({ content, anchorRect }: { content: string; anchorRect: DOMRect }) {
   const ref = useRef<HTMLDivElement>(null)
   const [left, setLeft] = useState<number>(() => Math.round(anchorRect.left + anchorRect.width / 2))
+  const [top, setTop] = useState<number>(() => Math.round(anchorRect.top - 7))
+  const [transform, setTransform] = useState<string>(`translateY(-100%)`)
 
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const { width } = el.getBoundingClientRect()
+    const { width, height } = el.getBoundingClientRect()
+    const bounds = getAppSafeBounds()
+
+    // Horizontal centering with bounds checking
     const center = anchorRect.left + anchorRect.width / 2
-    const margin = 8
-    setLeft(Math.round(Math.min(Math.max(center - width / 2, margin), window.innerWidth - width - margin)))
+    const newLeft = Math.round(Math.min(Math.max(center - width / 2, bounds.left), bounds.right - width))
+    setLeft(newLeft)
+
+    // Vertical positioning: try above first, fall back to below if not enough space
+    const spaceAbove = anchorRect.top - bounds.top
+    const spaceBelow = bounds.bottom - anchorRect.bottom
+    const tooltipHeight = height + 12 // tooltip height + gap
+
+    let newTop: number
+    let newTransform: string
+
+    if (spaceAbove >= tooltipHeight) {
+      // Position above anchor
+      newTop = Math.round(anchorRect.top - 7)
+      newTransform = `translateY(-100%)`
+    } else if (spaceBelow >= tooltipHeight) {
+      // Position below anchor
+      newTop = Math.round(anchorRect.bottom + 7)
+      newTransform = `translateY(0%)`
+    } else {
+      // Not enough space either way, use above but may be clipped
+      newTop = Math.round(Math.max(bounds.top, anchorRect.top - 7))
+      newTransform = `translateY(-100%)`
+    }
+
+    setTop(newTop)
+    setTransform(newTransform)
   }, [anchorRect])
 
   return (
@@ -323,8 +370,8 @@ function TooltipEl({ content, anchorRect }: { content: string; anchorRect: DOMRe
       style={{
         position: `fixed`,
         left,
-        top: Math.round(anchorRect.top - 7),
-        transform: `translateY(-100%)`,
+        top,
+        transform,
         pointerEvents: `none`,
         zIndex: 9999,
       }}
@@ -519,20 +566,38 @@ function TaskStatusPicker({
 
   const POPOVER_H = 116 // approx height of the 3-item popover
   const POPOVER_W = 180 // conservative width incl. icon + label + padding
-  const SAFE = 8
 
   function openPicker(e: MouseEvent) {
     e.stopPropagation()
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect()
-      const spaceBelow = window.innerHeight - r.bottom
-      const openUp = spaceBelow < POPOVER_H + 12
+      const bounds = getAppSafeBounds()
+
+      // Vertical positioning: try below, fall back to above if not enough space
+      const spaceBelow = bounds.bottom - r.bottom
+      const spaceAbove = r.top - bounds.top
+      const openUp = spaceBelow < POPOVER_H + 12 && spaceAbove >= POPOVER_H + 12
       const top = openUp ? r.top - POPOVER_H - 6 : r.bottom + 6
-      // Prefer left-align with trigger; flip to right-align if it would overflow the window.
-      const overflowsRight = r.left + POPOVER_W > window.innerWidth - SAFE
-      const left = overflowsRight
-        ? Math.max(SAFE, r.right - POPOVER_W)
-        : Math.max(SAFE, r.left)
+
+      // Horizontal positioning: prefer left-align, flip to right-align if it would overflow
+      const overflowsRight = r.left + POPOVER_W > bounds.right
+      const overflowsLeft = r.right - POPOVER_W < bounds.left
+      let left: number
+
+      if (overflowsRight && !overflowsLeft) {
+        // Flip to right-align
+        left = Math.max(bounds.left, r.right - POPOVER_W)
+      } else if (overflowsLeft && !overflowsRight) {
+        // Keep left-align (already correct)
+        left = Math.max(bounds.left, r.left)
+      } else if (overflowsRight && overflowsLeft) {
+        // Both overflow: center it within bounds
+        left = Math.max(bounds.left, Math.min(bounds.right - POPOVER_W, r.left + r.width / 2 - POPOVER_W / 2))
+      } else {
+        // Neither overflows: prefer left-align with button
+        left = r.left
+      }
+
       setPopoverPos({ top, left, openUp })
     }
     setOpen(prev => !prev)
@@ -1107,19 +1172,38 @@ function IdeaTagPicker({
 
   const POPOVER_H = 150
   const POPOVER_W = 180
-  const SAFE = 8
 
   function openPicker(e: MouseEvent) {
     e.stopPropagation()
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect()
-      const spaceBelow = window.innerHeight - r.bottom
-      const openUp = spaceBelow < POPOVER_H + 12
+      const bounds = getAppSafeBounds()
+
+      // Vertical positioning: try below, fall back to above if not enough space
+      const spaceBelow = bounds.bottom - r.bottom
+      const spaceAbove = r.top - bounds.top
+      const openUp = spaceBelow < POPOVER_H + 12 && spaceAbove >= POPOVER_H + 12
       const top = openUp ? r.top - POPOVER_H - 6 : r.bottom + 6
-      const overflowsRight = r.left + POPOVER_W > window.innerWidth - SAFE
-      const left = overflowsRight
-        ? Math.max(SAFE, r.right - POPOVER_W)
-        : Math.max(SAFE, r.left)
+
+      // Horizontal positioning: prefer left-align, flip to right-align if it would overflow
+      const overflowsRight = r.left + POPOVER_W > bounds.right
+      const overflowsLeft = r.right - POPOVER_W < bounds.left
+      let left: number
+
+      if (overflowsRight && !overflowsLeft) {
+        // Flip to right-align
+        left = Math.max(bounds.left, r.right - POPOVER_W)
+      } else if (overflowsLeft && !overflowsRight) {
+        // Keep left-align (already correct)
+        left = Math.max(bounds.left, r.left)
+      } else if (overflowsRight && overflowsLeft) {
+        // Both overflow: center it within bounds
+        left = Math.max(bounds.left, Math.min(bounds.right - POPOVER_W, r.left + r.width / 2 - POPOVER_W / 2))
+      } else {
+        // Neither overflows: prefer left-align with button
+        left = r.left
+      }
+
       setPopoverPos({ top, left, openUp })
     }
     setOpen(prev => !prev)
