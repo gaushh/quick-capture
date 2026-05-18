@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -232,23 +233,19 @@ function acceptTrackedAdditionAtPointer(root: HTMLElement, target: EventTarget |
   return true
 }
 
-/** e.g. `8:39 AM · Today` (matches transcript list design). */
+/** e.g. `8:39 AM` — bucket (Today/Yesterday/Earlier) is shown as a section header above the row. */
 function formatFeedEntryStamp(at: number) {
   try {
-    const bucket = bucketForTimestamp(at)
-    const time = formatHistoryTime(at)
-    return `${time} · ${BUCKET_LABEL[bucket]}`
+    return formatHistoryTime(at)
   } catch {
     return ``
   }
 }
 
-/** Latest row: show `now · Today` briefly, then calendar-style stamp. */
+/** Latest row: show `now` briefly, then time. */
 function formatLiveFeedStamp(at: number, nowMs: number) {
   const age = nowMs - at
-  const bucket = bucketForTimestamp(at)
-  const dayPart = BUCKET_LABEL[bucket]
-  if (age < 75_000) return `now · ${dayPart}`
+  if (age < 75_000) return `now`
   return formatFeedEntryStamp(at)
 }
 
@@ -322,8 +319,9 @@ function getAppSafeBounds(): { top: number; left: number; right: number; bottom:
 /** Inner tooltip div — measures itself after mount and clamps within the app bounds, repositioning vertically if needed. */
 function TooltipEl({ content, anchorRect }: { content: string; anchorRect: DOMRect }) {
   const ref = useRef<HTMLDivElement>(null)
+  const TOOLTIP_GAP = 16 // gap between anchor and tooltip so the icon stays readable + clickable
   const [left, setLeft] = useState<number>(() => Math.round(anchorRect.left + anchorRect.width / 2))
-  const [top, setTop] = useState<number>(() => Math.round(anchorRect.top - 7))
+  const [top, setTop] = useState<number>(() => Math.round(anchorRect.top - TOOLTIP_GAP))
   const [transform, setTransform] = useState<string>(`translateY(-100%)`)
 
   useLayoutEffect(() => {
@@ -340,22 +338,22 @@ function TooltipEl({ content, anchorRect }: { content: string; anchorRect: DOMRe
     // Vertical positioning: try above first, fall back to below if not enough space
     const spaceAbove = anchorRect.top - bounds.top
     const spaceBelow = bounds.bottom - anchorRect.bottom
-    const tooltipHeight = height + 12 // tooltip height + gap
+    const tooltipHeight = height + TOOLTIP_GAP + 4
 
     let newTop: number
     let newTransform: string
 
     if (spaceAbove >= tooltipHeight) {
       // Position above anchor
-      newTop = Math.round(anchorRect.top - 7)
+      newTop = Math.round(anchorRect.top - TOOLTIP_GAP)
       newTransform = `translateY(-100%)`
     } else if (spaceBelow >= tooltipHeight) {
       // Position below anchor
-      newTop = Math.round(anchorRect.bottom + 7)
+      newTop = Math.round(anchorRect.bottom + TOOLTIP_GAP)
       newTransform = `translateY(0%)`
     } else {
       // Not enough space either way, use above but may be clipped
-      newTop = Math.round(Math.max(bounds.top, anchorRect.top - 7))
+      newTop = Math.round(Math.max(bounds.top, anchorRect.top - TOOLTIP_GAP))
       newTransform = `translateY(-100%)`
     }
 
@@ -3126,7 +3124,7 @@ export function QuickCapture() {
                     className="qc-scratchpad-header-title truncate text-[17px] font-semibold tracking-tight"
                     style={{ color: `var(--qc-text-primary)` }}
                   >
-                    Voice notes
+                    Quick Capture
                   </span>
                   <p className="qc-sheet-shortcut-hint">
                     {isProcessingWhisper ?
@@ -3327,6 +3325,9 @@ export function QuickCapture() {
 
                         {filteredHistoryRows.map((row, idx) => {
                           const isLatest = idx === 0
+                          const bucket = bucketForTimestamp(row.at)
+                          const prevBucket = idx > 0 ? bucketForTimestamp(filteredHistoryRows[idx - 1].at) : null
+                          const showBucketHeader = bucket !== prevBucket
                           const stamp =
                             isLatest && noteCapturedAt !== null ?
                               liveFeedStamp || formatFeedEntryStamp(row.at)
@@ -3353,8 +3354,11 @@ export function QuickCapture() {
                           const cleanDisabled = isLatest ? cleanDisabledLatest : cleanDisabledPast
 
                           return (
+                            <Fragment key={row.id}>
+                              {showBucketHeader && (
+                                <div className="qc-feed-bucket-header">{BUCKET_LABEL[bucket]}</div>
+                              )}
                             <div
-                              key={row.id}
                               className={[
                                 isLatest ? `qc-feed-entry qc-feed-entry--current` : `qc-feed-entry`,
                                 isSelectionMode ? `qc-feed-entry--selectable` : ``,
@@ -3620,6 +3624,7 @@ export function QuickCapture() {
                                 />
                               }
                             </div>
+                            </Fragment>
                           )
                         })}
 
