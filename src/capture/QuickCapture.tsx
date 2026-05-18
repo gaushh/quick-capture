@@ -319,7 +319,7 @@ function getAppSafeBounds(): { top: number; left: number; right: number; bottom:
 /** Inner tooltip div — measures itself after mount and clamps within the app bounds, repositioning vertically if needed. */
 function TooltipEl({ content, anchorRect }: { content: string; anchorRect: DOMRect }) {
   const ref = useRef<HTMLDivElement>(null)
-  const TOOLTIP_GAP = 12 // gap between anchor and tooltip so the icon stays readable + clickable
+  const TOOLTIP_GAP = 16 // gap between anchor and tooltip so the icon stays readable + clickable
   const [left, setLeft] = useState<number>(() => Math.round(anchorRect.left + anchorRect.width / 2))
   const [top, setTop] = useState<number>(() => Math.round(anchorRect.top - TOOLTIP_GAP))
   const [transform, setTransform] = useState<string>(`translateY(-100%)`)
