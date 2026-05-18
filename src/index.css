@@ -2784,13 +2784,7 @@
 
   /* Status icon base */
   .qc-status-icon {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
+    display: none;
   }
 
   .qc-status-icon--todo {
