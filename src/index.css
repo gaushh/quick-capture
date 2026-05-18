@@ -2434,6 +2434,11 @@
     padding: 8px;
   }
 
+  .qc-derived-panel__item--reminder.qc-derived-panel__item--done {
+    opacity: 1;
+    background: color-mix(in srgb, var(--qc-bg-hover) 54%, transparent);
+  }
+
   .qc-reminder-item-main {
     display: flex;
     flex-direction: column;
@@ -2453,14 +2458,28 @@
     line-height: 1.4;
     outline: none;
     padding: 4px 5px;
+    resize: none;
+    overflow: hidden;
   }
 
   .qc-reminder-item-meta {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     flex-wrap: wrap;
     margin-top: 2px;
+  }
+
+  .qc-reminder-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+
+  .qc-reminder-input-icon {
+    color: var(--qc-text-muted);
+    flex-shrink: 0;
   }
 
   .qc-reminder-input-date,
@@ -2477,11 +2496,11 @@
   }
 
   .qc-reminder-input-date {
-    width: 90px;
+    width: 110px;
   }
 
   .qc-reminder-input-time {
-    width: 70px;
+    width: 75px;
   }
 
   .qc-reminder-input-date:hover,
@@ -2508,6 +2527,13 @@
     font-size: 11px;
     padding: 2px 5px;
     margin-top: 2px;
+  }
+
+  .qc-derived-panel__source {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-height: 1.4em;
   }
 
   /* ── Clean task list (Things-style) ───────────────────────── */
