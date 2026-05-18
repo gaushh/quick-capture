@@ -577,7 +577,7 @@ function TaskStatusPicker({
       const spaceBelow = bounds.bottom - r.bottom
       const spaceAbove = r.top - bounds.top
       const openUp = spaceBelow < POPOVER_H + 12 && spaceAbove >= POPOVER_H + 12
-      const top = openUp ? r.top - POPOVER_H - 2 : r.bottom + 2
+      const top = openUp ? r.bottom - POPOVER_H : r.top
 
       // Horizontal positioning: prefer left-align, flip to right-align if it would overflow
       const overflowsRight = r.left + POPOVER_W > bounds.right
@@ -620,6 +620,7 @@ function TaskStatusPicker({
         onClick={openPicker}
       >
         <TaskStatusIcon status={status} />
+        <span className="qc-status-btn__label">{STATUS_LABEL[status]}</span>
       </button>
       {open && createPortal(
         <div
@@ -1184,7 +1185,7 @@ function IdeaTagPicker({
       const spaceBelow = bounds.bottom - r.bottom
       const spaceAbove = r.top - bounds.top
       const openUp = spaceBelow < POPOVER_H + 12 && spaceAbove >= POPOVER_H + 12
-      const top = openUp ? r.top - POPOVER_H - 2 : r.bottom + 2
+      const top = openUp ? r.bottom - POPOVER_H : r.top
 
       // Horizontal positioning: prefer left-align, flip to right-align if it would overflow
       const overflowsRight = r.left + POPOVER_W > bounds.right

@@ -2888,23 +2888,31 @@
   }
 
   .qc-status-btn {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 24px;
+    justify-content: flex-start;
+    gap: 6px;
     height: 24px;
     border: none;
     background: transparent;
     cursor: pointer;
-    padding: 0;
+    padding: 0 6px 0 2px;
     -webkit-appearance: none;
     appearance: none;
-    border-radius: 50%;
+    border-radius: var(--qc-radius-sm);
     transition: background 120ms ease;
+    font: inherit;
+    font-size: var(--qc-text-xs);
+    color: var(--qc-text-secondary);
+    white-space: nowrap;
   }
 
   .qc-status-btn:hover {
     background: var(--qc-bg-hover);
+  }
+
+  .qc-status-btn__label {
+    line-height: 1;
   }
 
   .qc-status-popover {
