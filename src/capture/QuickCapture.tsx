@@ -3447,7 +3447,6 @@ export function QuickCapture() {
                                                 {row.movedTo === `tasks` && <ChecklistIcon size={11} />}
                                                 {row.movedTo === `ideas` && <IdeaIcon size={11} />}
                                                 {row.movedTo === `reminders` && <ReminderIcon size={11} />}
-                                                {row.movedTo === `tasks` ? `Tasks` : row.movedTo === `ideas` ? `Ideas` : `Reminders`}
                                               </button>
                                               {movePopoverRowId === row.id && (
                                                 <div className="qc-move-popover" role="menu" aria-label="Folder options">
