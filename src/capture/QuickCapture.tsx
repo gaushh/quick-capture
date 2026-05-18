@@ -485,7 +485,7 @@ function DestinationRail({
   )
 }
 
-const STATUS_ORDER: TaskStatus[] = [`in_progress`, `todo`, `done`]
+const STATUS_ORDER: TaskStatus[] = [`todo`, `in_progress`, `done`]
 const STATUS_LABEL: Record<TaskStatus, string> = {
   in_progress: `In Progress`,
   todo: `Not Started`,
@@ -603,11 +603,16 @@ function TaskManagerPanel({
   onEdit,
   onRemove,
 }: TaskManagerPanelProps) {
-  const doneTasks = tasks.filter(t => t.status === `done`).length
-  const openTasks = tasks.length - doneTasks
+  const [selectedStatus, setSelectedStatus] = useState<TaskStatus | null>(null)
+
+  const filteredTasks = selectedStatus ? tasks.filter(t => t.status === selectedStatus) : tasks
+
+  const todoCount = tasks.filter(t => t.status === `todo`).length
+  const inProgressCount = tasks.filter(t => t.status === `in_progress`).length
+  const doneCount = tasks.filter(t => t.status === `done`).length
 
   const grouped = STATUS_ORDER
-    .map(status => ({ status, items: tasks.filter(t => t.status === status) }))
+    .map(status => ({ status, items: filteredTasks.filter(t => t.status === status) }))
     .filter(g => g.items.length > 0)
 
   return (
@@ -615,10 +620,21 @@ function TaskManagerPanel({
       <div className="qc-derived-panel__summary">
         <div>
           <div className="qc-derived-panel__title">Tasks</div>
-          <div className="qc-derived-panel__subtitle">
-            {tasks.length ? `${openTasks} open · ${doneTasks} done` : `Move notes here to extract tasks`}
-          </div>
         </div>
+      </div>
+
+      <div className="qc-task-filter-pills">
+        {STATUS_ORDER.map(status => (
+          <button
+            key={status}
+            type="button"
+            className={`qc-status-pill qc-status-pill--${status}${selectedStatus === status ? ` qc-status-pill--selected` : ``}`}
+            onClick={() => setSelectedStatus(selectedStatus === status ? null : status)}
+            aria-pressed={selectedStatus === status}
+          >
+            {STATUS_LABEL[status]}
+          </button>
+        ))}
       </div>
 
       <div className="qc-task-list">
@@ -633,6 +649,7 @@ function TaskManagerPanel({
             <div className="qc-task-group__label">
               <TaskStatusIcon status={group.status} />
               {STATUS_LABEL[group.status]}
+              <span className="qc-task-group__count">({group.items.length})</span>
             </div>
             {group.items.map(task => (
               <div key={task.id} className={`qc-task-row${task.status === `done` ? ` qc-task-row--done` : ``}`}>
@@ -686,6 +703,10 @@ type IdeasPanelProps = {
 }
 
 function IdeasPanel({ ideas, onEdit, onRemove }: IdeasPanelProps) {
+  const [selectedTag, setSelectedTag] = useState<ExtractIdeaTag | null>(null)
+
+  const filteredIdeas = selectedTag ? ideas.filter(idea => idea.tag === selectedTag) : ideas
+
   return (
     <section className="qc-derived-panel" aria-label="Ideas">
       <div className="qc-derived-panel__summary">
@@ -697,14 +718,30 @@ function IdeasPanel({ ideas, onEdit, onRemove }: IdeasPanelProps) {
         </div>
       </div>
 
+      <div className="qc-ideas-filter-pills">
+        {IDEA_TAGS.map(tag => (
+          <button
+            key={tag}
+            type="button"
+            className={`qc-tag-pill qc-tag-pill--${tag}${selectedTag === tag ? ` qc-tag-pill--selected` : ``}`}
+            onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+            aria-pressed={selectedTag === tag}
+          >
+            {IDEA_TAG_LABEL[tag]}
+          </button>
+        ))}
+      </div>
+
       <div className="qc-derived-panel__list">
-        {!ideas.length && (
+        {!filteredIdeas.length && (
           <div className="qc-derived-panel__empty">
-            Choose <span>Move to...</span> on a note and select Ideas.
+            {selectedTag
+              ? `No ideas with this tag. ${ideas.length > 0 ? `Clear filter to see all.` : `Move notes here to shape ideas`}`
+              : `Choose <span>Move to...</span> on a note and select Ideas.`}
           </div>
         )}
 
-        {ideas.map(idea => (
+        {filteredIdeas.map(idea => (
           <article key={idea.id} className="qc-derived-panel__card qc-idea-card">
             <div className="qc-idea-card__head">
               <input
@@ -753,8 +790,36 @@ type RemindersPanelProps = {
   onRemove: (reminderId: string) => void
 }
 
+type ReminderGroup = 'upcoming' | 'past' | 'no-date'
+
+function getReminderGroup(reminder: CaptureDerivedReminder): ReminderGroup {
+  if (!reminder.dateText) return `no-date`
+
+  const reminderDate = new Date(reminder.dateText)
+  reminderDate.setHours(0, 0, 0, 0)
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  return reminderDate >= today ? `upcoming` : `past`
+}
+
+const REMINDER_GROUP_ORDER: ReminderGroup[] = [`upcoming`, `past`, `no-date`]
+const REMINDER_GROUP_LABEL: Record<ReminderGroup, string> = {
+  upcoming: `Upcoming`,
+  past: `Past`,
+  'no-date': `No Date Set`,
+}
+
 function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPanelProps) {
   const openReminders = reminders.filter(reminder => !reminder.done).length
+
+  const grouped = REMINDER_GROUP_ORDER
+    .map(group => ({
+      group,
+      items: reminders.filter(r => getReminderGroup(r) === group),
+    }))
+    .filter(g => g.items.length > 0)
 
   return (
     <section className="qc-derived-panel" aria-label="Reminders">
@@ -774,60 +839,62 @@ function RemindersPanel({ reminders, onToggle, onEdit, onRemove }: RemindersPane
           </div>
         )}
 
-        {reminders.map(reminder => (
-          <div key={reminder.id} className={`qc-derived-panel__item qc-derived-panel__item--reminder${reminder.done ? ` qc-derived-panel__item--done` : ``}`}>
-            <input
-              type="checkbox"
-              checked={reminder.done}
-              className="qc-derived-panel__checkbox"
-              onChange={e => onToggle(reminder.id, e.currentTarget.checked)}
-            />
-            <div className="qc-reminder-item-main">
-              <textarea
-                key={`${reminder.id}-text-${reminder.text}`}
-                className="qc-reminder-item-text"
-                defaultValue={reminder.text}
-                onBlur={e => onEdit(reminder.id, { text: e.currentTarget.value })}
-                aria-label="Reminder"
-                rows={1}
-              />
-              {reminder.sourceText && <p className="qc-derived-panel__source">{reminder.sourceText}</p>}
-              <div className="qc-reminder-item-meta">
-                <span className="qc-reminder-meta-icon">
-                  <CalendarIcon size={13} />
-                </span>
+        {grouped.map(group => (
+          <div key={group.group} className="qc-reminder-group">
+            <div className="qc-reminder-group__label">
+              {REMINDER_GROUP_LABEL[group.group]}
+              <span className="qc-reminder-group__count">({group.items.length})</span>
+            </div>
+            {group.items.map(reminder => (
+              <div key={reminder.id} className={`qc-derived-panel__item qc-derived-panel__item--reminder${reminder.done ? ` qc-derived-panel__item--done` : ``}`}>
                 <input
-                  key={`${reminder.id}-date-${reminder.dateText ?? ``}`}
-                  type="date"
-                  className="qc-reminder-input-date"
-                  defaultValue={reminder.dateText ?? ``}
-                  onBlur={e => onEdit(reminder.id, { dateText: e.currentTarget.value })}
-                  aria-label="Reminder date"
-                  title="Set date"
+                  type="checkbox"
+                  checked={reminder.done}
+                  className="qc-derived-panel__checkbox"
+                  onChange={e => onToggle(reminder.id, e.currentTarget.checked)}
                 />
-                <span className="qc-reminder-meta-icon">
-                  <ClockIcon size={13} />
-                </span>
-                <input
-                  key={`${reminder.id}-time-${reminder.timeText ?? ``}`}
-                  type="time"
-                  className="qc-reminder-input-time"
-                  defaultValue={reminder.timeText ?? ``}
-                  onBlur={e => onEdit(reminder.id, { timeText: e.currentTarget.value })}
-                  aria-label="Reminder time"
-                  title="Set time"
-                />
+                <div className="qc-reminder-item-main">
+                  <textarea
+                    key={`${reminder.id}-text-${reminder.text}`}
+                    className="qc-reminder-item-text"
+                    defaultValue={reminder.text}
+                    onBlur={e => onEdit(reminder.id, { text: e.currentTarget.value })}
+                    aria-label="Reminder"
+                    rows={1}
+                  />
+                  {reminder.sourceText && <p className="qc-derived-panel__source">{reminder.sourceText}</p>}
+                  <div className="qc-reminder-item-meta">
+                    <input
+                      key={`${reminder.id}-date-${reminder.dateText ?? ``}`}
+                      type="date"
+                      className="qc-reminder-input-date"
+                      defaultValue={reminder.dateText ?? ``}
+                      onBlur={e => onEdit(reminder.id, { dateText: e.currentTarget.value })}
+                      aria-label="Reminder date"
+                      title="Set date"
+                    />
+                    <input
+                      key={`${reminder.id}-time-${reminder.timeText ?? ``}`}
+                      type="time"
+                      className="qc-reminder-input-time"
+                      defaultValue={reminder.timeText ?? ``}
+                      onBlur={e => onEdit(reminder.id, { timeText: e.currentTarget.value })}
+                      aria-label="Reminder time"
+                      title="Set time"
+                    />
+                  </div>
+                </div>
                 <button
                   type="button"
-                  className="qc-derived-panel__remove"
+                  className="qc-derived-panel__remove qc-reminder-remove"
                   onClick={() => onRemove(reminder.id)}
                   aria-label="Remove reminder"
                 >
                   <XIcon size={13} />
                 </button>
+                {reminder.needsDateTime && <div className="qc-reminder-needs-datetime">Needs date/time</div>}
               </div>
-            </div>
-            {reminder.needsDateTime && <div className="qc-reminder-needs-datetime">Needs date/time</div>}
+            ))}
           </div>
         ))}
       </div>
@@ -1261,7 +1328,7 @@ function MoveReviewModal({
 
       </div>
     </div>,
-    document.body,
+    shellEl || document.body,
   )
 }
 
@@ -2847,6 +2914,7 @@ export function QuickCapture() {
       <section
         ref={node => { shellRef.current = node }}
         style={{
+          position: `relative`,
           width: shellWidth,
           height: shellHeight,
           borderRadius:

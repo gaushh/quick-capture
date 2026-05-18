@@ -2428,7 +2428,7 @@
 
   .qc-derived-panel__item--reminder {
     display: grid;
-    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-columns: 18px minmax(0, 1fr) 24px;
     align-items: flex-start;
     gap: 8px;
     padding: 8px;
@@ -2461,9 +2461,15 @@
   .qc-reminder-item-meta {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 4px;
+    flex-wrap: nowrap;
     margin-top: 2px;
+    font-size: 12px;
+    color: var(--qc-text-secondary);
+  }
+
+  .qc-reminder-item-meta::after {
+    content: ', ';
   }
 
   .qc-reminder-meta-icon {
@@ -2484,6 +2490,11 @@
     outline: none;
     cursor: pointer;
     min-width: 0;
+  }
+
+  .qc-reminder-input-date::-webkit-calendar-picker-indicator,
+  .qc-reminder-input-time::-webkit-calendar-picker-indicator {
+    display: none;
   }
 
   .qc-reminder-input-date {
@@ -2508,9 +2519,9 @@
     color: var(--qc-text-primary);
   }
 
-  .qc-derived-panel__item--reminder .qc-derived-panel__remove {
+  .qc-reminder-remove {
     padding: 2px 4px;
-    margin-left: auto;
+    align-self: start;
   }
 
   .qc-reminder-needs-datetime {
@@ -2535,12 +2546,12 @@
     min-height: 0;
     overflow-y: auto;
     padding: 8px 14px 12px;
-    gap: 2px;
+    gap: 4px;
   }
 
   .qc-task-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
     padding: 5px 0;
     border-radius: var(--qc-radius-sm);
@@ -2643,24 +2654,103 @@
 
   /* ── Task status system ────────────────────────────────────── */
 
+  .qc-task-filter-pills {
+    display: flex;
+    gap: 6px;
+    padding: 0 11px 8px;
+    flex-wrap: wrap;
+  }
+
+  .qc-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 9px;
+    border: 1px solid var(--qc-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--qc-text-secondary);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+
+  .qc-status-pill:hover {
+    background: var(--qc-bg-hover);
+    border-color: var(--qc-border-strong);
+  }
+
+  .qc-status-pill--selected {
+    background: var(--qc-bg-hover);
+    border-color: var(--qc-border-strong);
+    color: var(--qc-text-primary);
+  }
+
   .qc-task-group {
     display: flex;
     flex-direction: column;
     gap: 0;
-    margin-bottom: 4px;
+    margin-bottom: 12px;
   }
 
   .qc-task-group__label {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 0 4px;
+    gap: 8px;
+    padding: 12px 0 8px;
     font-size: 11px;
     font-weight: 600;
-    color: var(--qc-text-muted);
+    color: var(--qc-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     user-select: none;
+  }
+
+  .qc-task-group__count {
+    margin-left: auto;
+    margin-right: 0;
+    font-size: 11px;
+    color: var(--qc-text-muted);
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* ── Reminder grouping ────────────────────────────────────── */
+
+  .qc-reminder-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 12px;
+  }
+
+  .qc-reminder-group__label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--qc-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    user-select: none;
+  }
+
+  .qc-reminder-group__count {
+    margin-left: auto;
+    margin-right: 0;
+    font-size: 11px;
+    color: var(--qc-text-muted);
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   /* Status icon base */
@@ -2675,18 +2765,18 @@
   }
 
   .qc-status-icon--todo {
-    border: 1.5px solid var(--qc-border-strong);
+    border: 1.5px solid #9ca3af;
     background: transparent;
   }
 
   .qc-status-icon--in-progress {
-    border: 1.5px solid var(--qc-accent);
-    background: conic-gradient(var(--qc-accent) 50%, transparent 50%);
+    border: 1.5px solid #f59e0b;
+    background: conic-gradient(#f59e0b 50%, transparent 50%);
   }
 
   .qc-status-icon--done {
-    background: var(--qc-accent);
-    border: 1.5px solid var(--qc-accent);
+    background: #10b981;
+    border: 1.5px solid #10b981;
     color: white;
   }
 
@@ -3312,6 +3402,19 @@
   :root.qc-theme-dark .qc-tag-pill--strategy { color: #d8b1f0; }
   :root.qc-theme-dark .qc-tag-pill--content { color: #f5c479; }
 
+  .qc-tag-pill--selected {
+    background: var(--qc-bg-hover);
+    border-color: var(--qc-border-strong);
+    color: var(--qc-text-primary);
+  }
+
+  .qc-ideas-filter-pills {
+    display: flex;
+    gap: 6px;
+    padding: 0 11px 8px;
+    flex-wrap: wrap;
+  }
+
   .qc-tag-popover {
     z-index: 9999;
     background: var(--qc-bg-surface);
@@ -3361,6 +3464,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    background: transparent !important;
   }
 
   .qc-idea-card__head {
