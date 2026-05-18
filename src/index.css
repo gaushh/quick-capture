@@ -2170,7 +2170,7 @@
     padding: 8px 12px;
     border: 1px solid var(--qc-border-strong);
     border-radius: var(--qc-radius-md);
-    background: var(--qc-bg-surface);
+    background: var(--qc-bg-canvas);
     color: var(--qc-text-secondary);
     box-shadow: 0 2px 12px rgba(9, 12, 20, 0.1);
     font-size: 12px;
