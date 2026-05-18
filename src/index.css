@@ -1245,7 +1245,7 @@
   }
 
   .qc-feed-entry {
-    padding: 11px 16px 11px;
+    padding: 11px 12px 11px;
     position: relative;
 
   }
@@ -2008,7 +2008,7 @@
 
   /* Select-all row at the top of the feed */
   .qc-feed-select-all-row {
-    padding: 8px 20px 4px 13px;
+    padding: 8px 20px 4px 12px;
   }
 
   .qc-feed-select-all-label {
@@ -2484,7 +2484,7 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: var(--qc-text-xs);
+    font-size: var(--qc-text-sm);
     line-height: 1.5;
     outline: none;
     padding: 0;
@@ -2635,7 +2635,7 @@
     background: transparent;
     color: var(--qc-text-primary);
     font: inherit;
-    font-size: var(--qc-text-xs);
+    font-size: var(--qc-text-sm);
     line-height: 1.5;
     padding: 0;
     outline: none;
@@ -3348,7 +3348,7 @@
     background: transparent;
     color: var(--qc-text-secondary);
     font: inherit;
-    font-size: var(--qc-text-xs);
+    font-size: var(--qc-text-sm);
     line-height: 1.5;
     padding: 0;
     resize: none;
