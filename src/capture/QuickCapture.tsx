@@ -3133,10 +3133,7 @@ export function QuickCapture() {
                     <>
                       <div className="qc-derived-panel__summary">
                         <div>
-                          <div className="qc-derived-panel__title">All notes</div>
-                          <div className="qc-derived-panel__subtitle">
-                            {historyRows.length ? `${filteredHistoryRows.length} captured` : `Press ⌃Space to record`}
-                          </div>
+                          <div className="qc-derived-panel__title">All notes <span className="qc-pill-count">({historyRows.length})</span></div>
                         </div>
                       </div>
 
