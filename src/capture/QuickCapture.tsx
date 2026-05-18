@@ -3230,7 +3230,7 @@ export function QuickCapture() {
                           key="all"
                           type="button"
                           className={`qc-status-pill${selectedMoveDestination === null ? ` qc-status-pill--selected` : ``}`}
-                          onClick={() => setSelectedMoveDestination(selectedMoveDestination === null ? null : null)}
+                          onClick={() => setSelectedMoveDestination(null)}
                           aria-pressed={selectedMoveDestination === null}
                         >
                           All <span className="qc-pill-count">({historyRows.length})</span>
