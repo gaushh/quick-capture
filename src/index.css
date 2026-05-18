@@ -2455,6 +2455,8 @@
     padding: 4px 5px;
     resize: none;
     overflow: hidden;
+    field-sizing: content;
+    max-height: 120px;
   }
 
   .qc-reminder-item-meta {
